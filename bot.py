@@ -94,6 +94,9 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(file_path)
 
 def main():
+    if not TOKEN:
+        print("❌ BOT_TOKEN not found! Set in Render Environment Variables")
+        return
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
