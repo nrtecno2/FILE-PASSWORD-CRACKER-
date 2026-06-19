@@ -1,0 +1,50 @@
+import pyzipper
+import py7zr
+import pdfplumber
+import os
+from typing import Optional
+
+class PasswordCracker:
+    def __init__(self, wordlist_path="wordlist.txt"):
+        self.wordlist = self.load_wordlist(wordlist_path)
+    
+    def load_wordlist(self, path):
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                return [line.strip() for line in f if line.strip()]
+        # डिफॉल्ट वर्डलिस्ट
+        return ['123456', 'password', 'admin', '1234', '0000', 
+                'qwerty', 'abc123', 'letmein', 'welcome']
+    
+    def crack_zip(self, file_path: str) -> Optional[str]:
+        """ZIP फाइल का पासवर्ड क्रैक करें"""
+        for pwd in self.wordlist:
+            try:
+                with pyzipper.AESZipFile(file_path) as zf:
+                    zf.extractall(pwd=pwd.encode())
+                    return pwd
+            except:
+                continue
+        return None
+    
+    def crack_7z(self, file_path: str) -> Optional[str]:
+        """7z फाइल का पासवर्ड क्रैक करें"""
+        for pwd in self.wordlist:
+            try:
+                with py7zr.SevenZipFile(file_path, password=pwd) as archive:
+                    archive.extractall()
+                    return pwd
+            except:
+                continue
+        return None
+    
+    def crack_pdf(self, file_path: str) -> Optional[str]:
+        """PDF फाइल का पासवर्ड क्रैक करें"""
+        for pwd in self.wordlist:
+            try:
+                with pdfplumber.open(file_path, password=pwd) as pdf:
+                    if len(pdf.pages) > 0:
+                        return pwd
+            except:
+                continue
+        return None
