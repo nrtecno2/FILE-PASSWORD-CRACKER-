@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
-PRIVATE_CHANNEL = -1001234567890  # 🔥 APNA PRIVATE CHANNEL ID DALO
+PRIVATE_CHANNEL = -1004491770657  # 🔥 APNA PRIVATE CHANNEL ID DALO
 CHANNEL_USERNAME = "@nrtecno2"    # 🔥 APNA CHANNEL USERNAME
 
 # ============================================================
