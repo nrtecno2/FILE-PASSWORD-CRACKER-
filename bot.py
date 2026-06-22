@@ -16,7 +16,7 @@ from datetime import datetime
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
-PRIVATE_CHANNEL = -1001234567890  # 🔥 APNA PRIVATE CHANNEL ID DALO
+PRIVATE_CHANNEL = -1004479815753  # 🔥 APNA PRIVATE CHANNEL ID DALO
 CHANNEL_USERNAME = "@nrtecno2"
 
 app = Flask(__name__)
@@ -439,7 +439,8 @@ class UltimatePasswordGenerator:
 
     def clear(self):
         self.all_passwords = set()
-        # ============================================================
+
+# ============================================================
 # PART 3: FILE CRACKERS
 # ============================================================
 def crack_zip(file_path, password_list):
@@ -517,7 +518,8 @@ def crack_file(file_path, ext, password_list):
     elif ext == 'rar':
         return crack_rar(file_path, password_list)
     return None
-    # ============================================================
+
+# ============================================================
 # PART 4: TELEGRAM HELPERS AND KEYBOARDS
 # ============================================================
 def send_message(chat_id, text, reply_markup=None, parse_mode='Markdown'):
@@ -680,7 +682,8 @@ def crack_in_background(chat_id, session_id, session):
             
     except Exception as e:
         print(f"Background crack error: {e}")
-        # ============================================================
+
+# ============================================================
 # PART 5: MAIN WEBHOOK HANDLER (MESSAGES & FILES)
 # ============================================================
 @app.route(f'/webhook/{TOKEN}', methods=['POST'])
@@ -797,7 +800,8 @@ def webhook():
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"status": "error"}), 500
-        # ============================================================
+
+# ============================================================
 # PART 6: CALLBACK QUERIES, SET WEBHOOK, MAIN
 # ============================================================
 @app.route(f'/webhook/{TOKEN}', methods=['POST'])
