@@ -11,7 +11,7 @@ from flask import Flask, request, jsonify, render_template_string
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
-PRIVATE_CHANNEL = -1001234567890
+PRIVATE_CHANNEL = -1004479815753
 CHANNEL_USERNAME = "@nrtecno2"
 
 app = Flask(__name__)
