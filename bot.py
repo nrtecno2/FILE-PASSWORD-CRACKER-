@@ -909,6 +909,7 @@ def webhook():
         if not update:
             return jsonify({"status": "error"}), 400
         
+        # ========== MESSAGE HANDLER ==========
         if 'message' in update:
             message = update['message']
             chat_id = message['chat']['id']
@@ -975,6 +976,7 @@ def webhook():
                         del user_sessions[chat_id]
                     return jsonify({"status": "ok"}), 200
             
+            # ========== FILE HANDLER ==========
             if 'document' in message:
                 file = message['document']
                 file_name = file.get('file_name', 'unknown')
@@ -1008,15 +1010,135 @@ def webhook():
                     'state': 'waiting_for_option'
                 }
                 
-                send_message(chat_id, "📁 *File Received!*\n\n" f"📄 {file_name}\n🔽 *Choose an option:*", reply_markup=get_auto_buttons(), parse_mode='Markdown')
+                send_message(
+                    chat_id,
+                    f"📁 *File Received!*\n\n📄 {file_name}\n🔽 *Choose an option:*",
+                    reply_markup=get_auto_buttons(),
+                    parse_mode='Markdown'
+                )
+                
                 return jsonify({"status": "ok"}), 200
+        
+        # ========== CALLBACK QUERY HANDLER ==========
+        if 'callback_query' in update:
+            callback = update['callback_query']
+            callback_id = callback['id']
+            chat_id = callback['message']['chat']['id']
+            message_id = callback['message']['message_id']
+            user_id = callback['from']['id']
+            data = callback['data']
+            
+            print(f"🔔 Callback received: {data} from user {user_id}")
+            
+            # ---------- VERIFY ----------
+            if data == 'verify':
+                if check_channel_membership(user_id):
+                    edit_message(chat_id, message_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n📁 *Send me a file.*", parse_mode='Markdown')
+                else:
+                    edit_message(chat_id, message_id, "🔴 *Still Not Verified!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
+                answer_callback(callback_id)
+                return jsonify({"status": "ok"}), 200
+            
+            # ---------- AUTO DIRECT ----------
+            if data == 'auto_direct':
+                session = user_sessions.get(chat_id)
+                if not session:
+                    send_message(chat_id, "❌ *No file found. Send a file first.*", parse_mode='Markdown')
+                    answer_callback(callback_id)
+                    return jsonify({"status": "ok"}), 200
+                
+                edit_message(chat_id, message_id, "🔄 *AUTO mode activated (Direct)...*\n⏳ Generating ultimate passwords...", parse_mode='Markdown')
+                
+                generator = UltimatePasswordGenerator()
+                password_list = generator.generate_ultimate_passwords()
+                
+                session_id = f"{chat_id}_{int(time.time())}"
+                cracking_sessions[session_id] = {
+                    'password_list': password_list,
+                    'file_path': session['file_path'],
+                    'file_ext': session['file_ext'],
+                    'file_name': session['file_name']
+                }
+                
+                machine_url = f"{RENDER_URL}/view/{session_id}"
+                send_message(chat_id, f"🔗 *Brute-Force Machine Started!*\n\n📊 {len(password_list)} passwords loaded\n🔗 [Click here to watch live cracking]({machine_url})\n\n_Password will be sent here when found._", parse_mode='Markdown')
+                
+                threading.Thread(target=crack_in_background, args=(chat_id, session_id, session)).start()
+                
+                generator.clear()
+                del user_sessions[chat_id]
+                answer_callback(callback_id)
+                return jsonify({"status": "ok"}), 200
+            
+            # ---------- AUTO INFO ----------
+            if data == 'auto_info':
+                session = user_sessions.get(chat_id)
+                if not session:
+                    send_message(chat_id, "❌ *No file found. Send a file first.*", parse_mode='Markdown')
+                    answer_callback(callback_id)
+                    return jsonify({"status": "ok"}), 200
+                
+                fields = ['name', 'dob', 'father', 'mother', 'city', 'mobile']
+                session['info'] = {}
+                session['fields'] = fields
+                session['current_field'] = fields[0]
+                session['state'] = 'collecting_info'
+                
+                edit_message(chat_id, message_id, "📝 *Let's collect some info for ultimate password generation*\n\n", parse_mode='Markdown')
+                send_message(chat_id, f"📝 *Enter {fields[0].title()}?*", parse_mode='Markdown')
+                answer_callback(callback_id)
+                return jsonify({"status": "ok"}), 200
+            
+            # ---------- CANCEL ----------
+            if data == 'cancel':
+                session = user_sessions.get(chat_id)
+                if session and session.get('file_path'):
+                    os.remove(session['file_path'])
+                del user_sessions[chat_id]
+                send_message(chat_id, "❌ *Cancelled.* Send file again.", parse_mode='Markdown')
+                answer_callback(callback_id)
+                return jsonify({"status": "ok"}), 200
+            
+            answer_callback(callback_id)
+            return jsonify({"status": "ok"}), 200
         
         return jsonify({"status": "ok"}), 200
         
     except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"status": "error"}), 500
+        print(f"❌ Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
+
+# ============================================================
+# SET WEBHOOK
+# ============================================================
+def set_webhook():
+    webhook_url = f"{RENDER_URL}/webhook/{TOKEN}"
+    url = f"https://api.telegram.org/bot{TOKEN}/setWebhook"
+    response = requests.post(url, json={"url": webhook_url})
+    if response.status_code == 200:
+        print(f"✅ Webhook set to: {webhook_url}")
+    else:
+        print(f"❌ Webhook failed: {response.text}")
+
+
+# ============================================================
+# MAIN
+# ============================================================
+if __name__ == "__main__":
+    if not TOKEN:
+        print("❌ BOT_TOKEN not found!")
+        exit(1)
+    
+    set_webhook()
+    
+    port = int(os.environ.get("PORT", 5000))
+    print("🤖 NRTECNO ULTIMATE PASSWORD CRACKER STARTED...")
+    print("🔢 Password Types: 18+ combinations")
+    print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
+    print("🚀 Running on port", port)
+    
+    app.run(host="0.0.0.0", port=port)
 # ============================================================
 # PART 6: CALLBACK QUERIES, SET WEBHOOK, MAIN
 # ============================================================
