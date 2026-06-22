@@ -1,7 +1,8 @@
 FROM python:3.10-slim
 
+# 🔥 FIX: Use unrar-free instead of unrar
 RUN apt-get update && apt-get install -y \
-    unrar \
+    unrar-free \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
