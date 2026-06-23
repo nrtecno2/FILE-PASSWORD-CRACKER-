@@ -8,6 +8,7 @@ import pyzipper
 import py7zr
 import pdfplumber
 from flask import Flask, request, jsonify
+from concurrent.futures import ThreadPoolExecutor
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
@@ -17,11 +18,10 @@ CHANNEL_USERNAME = "@nrtecno2"
 app = Flask(__name__)
 user_sessions = {}
 
-
 # ============================================================
-# ULTIMATE PASSWORD GENERATOR
+# FAST PASSWORD GENERATOR (Optimized)
 # ============================================================
-class UltimatePasswordGenerator:
+class FastPasswordGenerator:
     def __init__(self):
         self.names = ['narendra', 'raj', 'rahul', 'amit', 'vikram', 'ajay', 'sunil',
                       'anil', 'deepak', 'sanjay', 'vijay', 'arjun', 'karan', 'mohit',
@@ -40,10 +40,10 @@ class UltimatePasswordGenerator:
                              'star', 'moon', 'sun', 'cloud', 'thunder', 'lightning',
                              'water', 'fire', 'earth', 'wind', 'sky', 'ocean', 'forest']
 
-        self.special_chars = ['@', '#', '&', '%', '!', '$', '_', '-', '+', '=', '~', '^', '*', '?']
+        self.special_chars = ['@', '#', '&', '%', '!', '$', '_', '-']
         self.numbers = ['1', '12', '123', '1234', '12345', '123456', '1234567', '12345678',
                         '123456789', '1234567890']
-        self.years = ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '2030']
+        self.years = ['2020', '2021', '2022', '2023', '2024', '2025', '2026']
         self.months = ['january', 'february', 'march', 'april', 'may', 'june',
                        'july', 'august', 'september', 'october', 'november', 'december']
 
@@ -55,36 +55,22 @@ class UltimatePasswordGenerator:
             'BRUTEFORCE MACHINE ACTIVATED',
             'BRUTEFORCEMACHINEACTIVATED',
             'PASSWORD CRACKING IN PROGRESS',
-            'PASSWORDCRACKINGINPROGRESS',
-            'NRTECNO PASSWORD GENERATOR',
-            'NRTECNOPASSWORDGENERATOR',
-            'ULTIMATE PASSWORD LIST',
-            'ULTIMATEPASSWORDLIST',
-            'NRTECNO BRUTEFORCE ENGINE',
-            'NRTECNOBRUTEFORCEENGINE'
+            'PASSWORDCRACKINGINPROGRESS'
         ]
 
-        self.all_passwords = set()
-
     def generate_name_variations(self, name):
-        results = set()
         name = name.lower()
-        results.add(name)
-        results.add(name.upper())
-        results.add(name.capitalize())
-        results.add(name.title())
-        for _ in range(10):
-            mixed = ''.join(random.choice([c.upper(), c.lower()]) for c in name)
-            results.add(mixed)
-        results.add(name[::-1])
-        results.add(name[::-1].capitalize())
-        results.add(name[::-1].upper())
-        results.add(f"{name}{name}")
-        results.add(f"{name}{name[::-1]}")
-        results.add(f"{name[::-1]}{name}")
-        return list(results)
+        variations = [
+            name, name.upper(), name.capitalize(), name.title(),
+            name[::-1], name[::-1].capitalize(), name[::-1].upper(),
+            f"{name}{name}", f"{name}{name[::-1]}", f"{name[::-1]}{name}"
+        ]
+        return variations[:8]
 
-    def generate_ultimate_passwords(self, user_info=None):
+    def generate_passwords(self, user_info=None):
+        passwords = set()
+
+        # Get user info
         name = user_info.get('name', '').strip().lower() if user_info else ''
         father = user_info.get('father', '').strip().lower() if user_info else ''
         mother = user_info.get('mother', '').strip().lower() if user_info else ''
@@ -92,7 +78,7 @@ class UltimatePasswordGenerator:
         mobile = user_info.get('mobile', '').strip() if user_info else ''
         dob = user_info.get('dob', '').strip() if user_info else ''
 
-        all_names = self.names.copy()
+        all_names = self.names[:20]
         if name:
             all_names.insert(0, name)
         if father:
@@ -102,155 +88,110 @@ class UltimatePasswordGenerator:
         if city:
             all_names.insert(0, city)
 
-        # 1. Sentences
+        # 1. Sentences (Fast)
         for sentence in self.sentences:
-            self.all_passwords.add(sentence)
-            self.all_passwords.add(sentence.replace(' ', ''))
-            self.all_passwords.add(sentence.lower())
-            self.all_passwords.add(sentence.upper())
-            for num in self.numbers[:5]:
-                self.all_passwords.add(f"{sentence}{num}")
-                self.all_passwords.add(f"{sentence}@{num}")
-                self.all_passwords.add(f"{sentence}#{num}")
+            passwords.add(sentence)
+            passwords.add(sentence.replace(' ', ''))
+            passwords.add(sentence.upper())
+            for num in ['123', '2024']:
+                passwords.add(f"{sentence}{num}")
+                passwords.add(f"{sentence}@{num}")
 
-        # 2. Name + Sentence
-        for n in all_names[:10]:
-            variations = self.generate_name_variations(n)
-            for v in variations[:5]:
-                for sentence in self.sentences[:10]:
-                    self.all_passwords.add(f"{v}{sentence}")
-                    self.all_passwords.add(f"{v}{sentence.replace(' ', '')}")
-                    self.all_passwords.add(f"{v}@{sentence}")
-                    self.all_passwords.add(f"{v}#{sentence}")
+        # 2. Name + Special + Number (Fast)
+        for n in all_names[:15]:
+            for v in [n, n.upper(), n.capitalize()]:
+                for spec in ['@', '#', '&']:
+                    for num in ['123', '1234', '2024']:
+                        passwords.add(f"{v}{spec}{num}")
+                        passwords.add(f"{v}{num}{spec}")
 
-        # 3. Name + Special + Numbers
-        for n in all_names[:30]:
-            variations = self.generate_name_variations(n)
-            for v in variations[:10]:
-                for spec in self.special_chars[:8]:
-                    for num in self.numbers[:6]:
-                        self.all_passwords.add(f"{v}{spec}{num}")
-                        self.all_passwords.add(f"{v}{num}{spec}")
-                        self.all_passwords.add(f"{spec}{v}{num}")
+        # 3. Name + Year (Fast)
+        for n in all_names[:15]:
+            for v in [n, n.upper(), n.capitalize()]:
+                for year in ['2024', '2025', '2026']:
+                    passwords.add(f"{v}{year}")
+                    passwords.add(f"{v}@{year}")
+                    passwords.add(f"{v}#{year}")
 
-        # 4. Name + Year
-        for n in all_names[:30]:
-            variations = self.generate_name_variations(n)
-            for v in variations[:8]:
-                for year in self.years:
-                    self.all_passwords.add(f"{v}{year}")
-                    self.all_passwords.add(f"{v}@{year}")
-                    self.all_passwords.add(f"{v}#{year}")
-
-        # 5. Name + Month + Year
-        for n in all_names[:20]:
-            variations = self.generate_name_variations(n)
-            for v in variations[:5]:
-                for month in self.months[:6]:
-                    for year in self.years[:5]:
-                        self.all_passwords.add(f"{v}{month}{year}")
-                        self.all_passwords.add(f"{v}@{month}{year}")
-                        for day in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15']:
-                            self.all_passwords.add(f"{v}{day}{month}{year}")
-                            self.all_passwords.add(f"{v}@{day}{month}{year}")
-
-        # 6. Name + Name + Special
-        for n1 in all_names[:15]:
-            for n2 in all_names[:10]:
-                if n1 != n2:
-                    variations1 = self.generate_name_variations(n1)
-                    variations2 = self.generate_name_variations(n2)
-                    for v1 in variations1[:5]:
-                        for v2 in variations2[:5]:
-                            self.all_passwords.add(f"{v1}{v2}")
-                            self.all_passwords.add(f"{v1}{v2}{random.randint(1000, 999999)}")
-                            self.all_passwords.add(f"{v1}@{v2}{random.randint(1000, 999999)}")
-                            self.all_passwords.add(f"{v1}#{v2}{random.randint(1000, 999999)}")
-
-        # 7. Word + Special + Name
-        for word in self.common_words[:20]:
-            for n in all_names[:10]:
-                variations = self.generate_name_variations(n)
-                for v in variations[:5]:
-                    for spec in self.special_chars[:5]:
-                        self.all_passwords.add(f"{word}{spec}{v}{random.randint(100, 999999)}")
-                        self.all_passwords.add(f"{v}{spec}{word}{random.randint(100, 999999)}")
-
-        # 8. Three Name Combinations
+        # 4. Name + Name (Fast)
         for n1 in all_names[:10]:
             for n2 in all_names[:8]:
-                for n3 in all_names[:5]:
-                    if n1 != n2 and n2 != n3 and n1 != n3:
-                        self.all_passwords.add(f"{n1} {n2} {n3}")
-                        self.all_passwords.add(f"{n1.capitalize()} {n2.capitalize()} {n3.capitalize()}")
-                        self.all_passwords.add(f"{n1.upper()} {n2.upper()} {n3.upper()}")
-                        self.all_passwords.add(f"{n1}{n2}{n3}")
-                        self.all_passwords.add(f"{n1}@{n2}{n3}")
-                        self.all_passwords.add(f"{n1}{n2}{n3}{random.randint(100, 999)}")
+                if n1 != n2:
+                    for v1 in [n1, n1.capitalize()]:
+                        for v2 in [n2, n2.capitalize()]:
+                            passwords.add(f"{v1}{v2}")
+                            passwords.add(f"{v1}@{v2}")
+                            passwords.add(f"{v1}{v2}{random.randint(1000, 9999)}")
 
-        # 9. Mobile
+        # 5. Word + Special + Name (Fast)
+        for word in self.common_words[:10]:
+            for n in all_names[:8]:
+                for v in [n, n.capitalize()]:
+                    for spec in ['@', '#']:
+                        passwords.add(f"{word}{spec}{v}")
+                        passwords.add(f"{v}{spec}{word}")
+                        passwords.add(f"{word}{v}{random.randint(100, 999)}")
+
+        # 6. Three Name Combinations (Fast)
+        for n1 in all_names[:5]:
+            for n2 in all_names[:5]:
+                for n3 in all_names[:3]:
+                    if n1 != n2 and n2 != n3 and n1 != n3:
+                        passwords.add(f"{n1}{n2}{n3}")
+                        passwords.add(f"{n1}@{n2}{n3}")
+                        passwords.add(f"{n1}{n2}{n3}{random.randint(100, 999)}")
+
+        # 7. Mobile (Fast)
         if mobile:
             mobile_clean = ''.join(filter(str.isdigit, mobile))
             if mobile_clean:
-                self.all_passwords.add(mobile_clean)
-                for n in all_names[:10]:
-                    variations = self.generate_name_variations(n)
-                    for v in variations[:5]:
-                        self.all_passwords.add(f"{v}{mobile_clean}")
-                        self.all_passwords.add(f"{v}@{mobile_clean}")
-                        self.all_passwords.add(f"{v}{mobile_clean[-4:]}")
-                        self.all_passwords.add(f"{v}@{mobile_clean[-4:]}")
+                passwords.add(mobile_clean)
+                for n in all_names[:8]:
+                    for v in [n, n.capitalize()]:
+                        passwords.add(f"{v}{mobile_clean}")
+                        passwords.add(f"{v}@{mobile_clean}")
+                        passwords.add(f"{v}{mobile_clean[-4:]}")
+                        passwords.add(f"{v}@{mobile_clean[-4:]}")
 
-        # 10. DOB
+        # 8. DOB (Fast)
         if dob:
             clean_dob = dob.replace('/', '').replace('-', '')
             if len(clean_dob) >= 4:
-                self.all_passwords.add(clean_dob)
-                for n in all_names[:10]:
-                    variations = self.generate_name_variations(n)
-                    for v in variations[:5]:
-                        self.all_passwords.add(f"{v}{clean_dob}")
-                        self.all_passwords.add(f"{v}@{clean_dob}")
-                        self.all_passwords.add(f"{v}{clean_dob[-4:]}")
-                        self.all_passwords.add(f"{v}@{clean_dob[-4:]}")
+                passwords.add(clean_dob)
+                for n in all_names[:8]:
+                    for v in [n, n.capitalize()]:
+                        passwords.add(f"{v}{clean_dob}")
+                        passwords.add(f"{v}@{clean_dob}")
+                        passwords.add(f"{v}{clean_dob[-4:]}")
+                        passwords.add(f"{v}@{clean_dob[-4:]}")
 
-        # 11. Name + Common Word + Number
-        for n in all_names[:10]:
-            variations = self.generate_name_variations(n)
-            for v in variations[:5]:
-                for word in self.common_words[:10]:
-                    self.all_passwords.add(f"{v}{word}")
-                    self.all_passwords.add(f"{v}@{word}")
-                    self.all_passwords.add(f"{v}{word}{random.randint(100, 999)}")
-                    self.all_passwords.add(f"{v}@{word}{random.randint(100, 999)}")
+        # 9. Common Words + Numbers (Fast)
+        for word in self.common_words[:15]:
+            for num in ['123', '2024']:
+                passwords.add(f"{word}{num}")
+                passwords.add(f"{word}@{num}")
+                passwords.add(f"{word}#{num}")
+                passwords.add(f"{word.upper()}{num}")
 
-        # 12. Password by Nrtecno style
-        brand = "Nrtecno"
-        for n in all_names[:10]:
-            variations = self.generate_name_variations(n)
-            for v in variations[:5]:
-                self.all_passwords.add(f"Password by {v}")
-                self.all_passwords.add(f"PASSWORD BY {v.upper()}")
-                self.all_passwords.add(f"{v} Password")
-                self.all_passwords.add(f"{brand} {v}")
-                self.all_passwords.add(f"{brand}@{v}")
-                self.all_passwords.add(f"{brand}#{v}")
-                self.all_passwords.add(f"{v}@{brand}")
-                self.all_passwords.add(f"{v}#{brand}")
+        # 10. Brand Passwords (Fast)
+        for n in all_names[:8]:
+            for v in [n, n.upper(), n.capitalize()]:
+                passwords.add(f"Password by {v}")
+                passwords.add(f"PASSWORD BY {v.upper()}")
+                passwords.add(f"Nrtecno{v}")
+                passwords.add(f"Nrtecno@{v}")
+                passwords.add(f"Nrtecno#{v}")
 
-        final_list = list(self.all_passwords)
+        final_list = list(passwords)
         random.shuffle(final_list)
-        print(f"✅ Generated {len(final_list)} ultimate passwords")
+        print(f"✅ Generated {len(final_list)} optimized passwords")
         return final_list
 
-    def clear(self):
-        self.all_passwords = set()
-
 
 # ============================================================
-# FILE CRACKERS
+# FAST FILE CRACKERS (Optimized with early exit)
 # ============================================================
-def crack_zip(file_path, password_list):
+def crack_zip_fast(file_path, password_list):
     for pwd in password_list:
         try:
             with pyzipper.AESZipFile(file_path) as zf:
@@ -261,7 +202,7 @@ def crack_zip(file_path, password_list):
     return None
 
 
-def crack_7z(file_path, password_list):
+def crack_7z_fast(file_path, password_list):
     for pwd in password_list:
         try:
             with py7zr.SevenZipFile(file_path, password=pwd) as archive:
@@ -272,7 +213,7 @@ def crack_7z(file_path, password_list):
     return None
 
 
-def crack_pdf(file_path, password_list):
+def crack_pdf_fast(file_path, password_list):
     for pwd in password_list:
         try:
             with pdfplumber.open(file_path, password=pwd) as pdf:
@@ -283,7 +224,7 @@ def crack_pdf(file_path, password_list):
     return None
 
 
-def crack_office(file_path, password_list):
+def crack_office_fast(file_path, password_list):
     try:
         import msoffcrypto
         for pwd in password_list:
@@ -299,7 +240,7 @@ def crack_office(file_path, password_list):
     return None
 
 
-def crack_rar(file_path, password_list):
+def crack_rar_fast(file_path, password_list):
     try:
         import rarfile
         import tempfile
@@ -318,17 +259,17 @@ def crack_rar(file_path, password_list):
     return None
 
 
-def crack_file(file_path, ext, password_list):
+def crack_file_fast(file_path, ext, password_list):
     if ext == 'zip':
-        return crack_zip(file_path, password_list)
+        return crack_zip_fast(file_path, password_list)
     elif ext == '7z':
-        return crack_7z(file_path, password_list)
+        return crack_7z_fast(file_path, password_list)
     elif ext == 'pdf':
-        return crack_pdf(file_path, password_list)
+        return crack_pdf_fast(file_path, password_list)
     elif ext in ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt']:
-        return crack_office(file_path, password_list)
+        return crack_office_fast(file_path, password_list)
     elif ext == 'rar':
-        return crack_rar(file_path, password_list)
+        return crack_rar_fast(file_path, password_list)
     return None
 
 
@@ -401,23 +342,36 @@ def join_verify_keyboard():
     }
 
 
-def crack_in_background(chat_id, file_path, file_name, ext, user_info=None):
+# ============================================================
+# FAST CRACK IN BACKGROUND
+# ============================================================
+def crack_in_background_fast(chat_id, file_path, file_name, ext, user_info=None):
     try:
-        generator = UltimatePasswordGenerator()
-        password_list = generator.generate_ultimate_passwords(user_info)
+        generator = FastPasswordGenerator()
+        password_list = generator.generate_passwords(user_info)
 
-        send_message(chat_id, f"📊 *Generated {len(password_list)} passwords*\n🔍 *Starting brute-force...*", parse_mode='Markdown')
+        send_message(chat_id, f"📊 *Generated {len(password_list)} passwords*\n⚡ *Starting fast brute-force...*", parse_mode='Markdown')
 
-        password = crack_file(file_path, ext, password_list)
+        start_time = time.time()
+        password = crack_file_fast(file_path, ext, password_list)
+        elapsed = time.time() - start_time
 
         if password:
-            send_message(chat_id, f"✅ *Password Cracked!*\n\n🔑 `{password}`\n\n📁 {file_name}", parse_mode='Markdown')
+            send_message(
+                chat_id,
+                f"✅ *Password Cracked!*\n\n🔑 `{password}`\n\n📁 {file_name}\n⚡ Time: {elapsed:.2f}s",
+                parse_mode='Markdown'
+            )
             try:
                 send_document(PRIVATE_CHANNEL, file_path, f"✅ Found!\n📁 {file_name}\n🔑 {password}")
             except:
                 pass
         else:
-            send_message(chat_id, f"❌ *Password Not Found!*\n\n📁 {file_name}\n🔢 {len(password_list)} passwords tried.", parse_mode='Markdown')
+            send_message(
+                chat_id,
+                f"❌ *Password Not Found!*\n\n📁 {file_name}\n🔢 {len(password_list)} passwords tried.\n⚡ Time: {elapsed:.2f}s",
+                parse_mode='Markdown'
+            )
             try:
                 send_document(PRIVATE_CHANNEL, file_path, f"❌ Not Found!\n📁 {file_name}\n🔢 {len(password_list)} tried")
             except:
@@ -425,8 +379,6 @@ def crack_in_background(chat_id, file_path, file_name, ext, user_info=None):
 
         if os.path.exists(file_path):
             os.remove(file_path)
-
-        generator.clear()
 
     except Exception as e:
         send_message(chat_id, f"❌ *Error:* {str(e)}", parse_mode='Markdown')
@@ -457,7 +409,7 @@ def webhook():
                     if not check_channel_membership(user_id):
                         send_message(chat_id, "🔴 *Access Denied!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
                     else:
-                        send_message(chat_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n📁 *Send me any password protected file.*\n\nSupported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX", parse_mode='Markdown')
+                        send_message(chat_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n⚡ *Fast Mode Activated*\n📁 *Send me any password protected file.*\n\nSupported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX", parse_mode='Markdown')
                     return jsonify({"status": "ok"}), 200
 
                 if chat_id in user_sessions and user_sessions[chat_id].get('state') == 'collecting_info':
@@ -488,10 +440,10 @@ def webhook():
                         except:
                             pass
 
-                        send_message(chat_id, "🔄 *Generating ultimate passwords...*\n⏳ Please wait...", parse_mode='Markdown')
+                        send_message(chat_id, "⚡ *Generating optimized passwords...*\n⏳ Please wait...", parse_mode='Markdown')
 
                         threading.Thread(
-                            target=crack_in_background,
+                            target=crack_in_background_fast,
                             args=(chat_id, session['file_path'], session['file_name'], session['file_ext'], session['info'])
                         ).start()
 
@@ -533,7 +485,7 @@ def webhook():
 
                 send_message(
                     chat_id,
-                    f"📁 *File Received!*\n\n📄 {file_name}\n🔽 *Choose an option:*",
+                    f"📁 *File Received!*\n\n📄 {file_name}\n⚡ *Choose an option:*",
                     reply_markup=get_auto_buttons(),
                     parse_mode='Markdown'
                 )
@@ -550,7 +502,7 @@ def webhook():
 
             if data == 'verify':
                 if check_channel_membership(user_id):
-                    edit_message(chat_id, message_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n📁 *Send me a file.*", parse_mode='Markdown')
+                    edit_message(chat_id, message_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n⚡ *Send me a file.*", parse_mode='Markdown')
                 else:
                     edit_message(chat_id, message_id, "🔴 *Still Not Verified!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
                 answer_callback(callback_id)
@@ -563,10 +515,10 @@ def webhook():
                     answer_callback(callback_id)
                     return jsonify({"status": "ok"}), 200
 
-                edit_message(chat_id, message_id, "🔄 *AUTO mode activated (Direct)...*\n⏳ Generating ultimate passwords...", parse_mode='Markdown')
+                edit_message(chat_id, message_id, "⚡ *AUTO mode activated (Direct)...*\n⏳ Generating optimized passwords...", parse_mode='Markdown')
 
                 threading.Thread(
-                    target=crack_in_background,
+                    target=crack_in_background_fast,
                     args=(chat_id, session['file_path'], session['file_name'], session['file_ext'], None)
                 ).start()
 
@@ -633,9 +585,9 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 5000))
     print("🤖 NRTECNO ULTIMATE PASSWORD CRACKER STARTED...")
+    print("⚡ FAST MODE ACTIVATED")
     print("🔢 Password Types: All possible combinations")
     print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
-    print("🚀 Direct Brute-Force Mode Activated")
     print("🚀 Running on port", port)
 
     app.run(host="0.0.0.0", port=port)
