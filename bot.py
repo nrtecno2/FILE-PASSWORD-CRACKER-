@@ -12,7 +12,7 @@ from itertools import product
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
-PRIVATE_CHANNEL = -1004479815753
+PRIVATE_CHANNEL = -1001234567890
 CHANNEL_USERNAME = "@nrtecno2"
 
 app = Flask(__name__)
@@ -21,18 +21,16 @@ active_cracking = {}
 
 
 # ============================================================
-# SEQUENTIAL PASSWORD GENERATOR — 5 TO 100 CHARS
+# SEQUENTIAL PASSWORD GENERATOR — 5 TO 100 CHARS (1500/sec)
 # ============================================================
 class SequentialPasswordGenerator:
     def __init__(self):
-        # Character sets for sequential generation
         self.lowercase = 'abcdefghijklmnopqrstuvwxyz'
         self.uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         self.digits = '0123456789'
         self.symbols = '!@#$%^&*()_+-='
         self.all_chars = self.lowercase + self.uppercase + self.digits + self.symbols
         
-        # Smart passwords for initial quick hits
         self.names = ['admin', 'root', 'user', 'guest', 'login', 'test', 'demo',
                       'narendra', 'raj', 'rahul', 'amit', 'vikram', 'ajay', 'sunil',
                       'anil', 'deepak', 'sanjay', 'vijay', 'arjun', 'karan', 'mohit',
@@ -54,9 +52,6 @@ class SequentialPasswordGenerator:
         self.char_index = 0
         self.should_stop = False
 
-    # ============================================================
-    # 1. USER INFO BASED — FIRST PRIORITY
-    # ============================================================
     def generate_from_user_info(self, user_info):
         passwords = set()
         name = user_info.get('name', '').strip()
@@ -83,7 +78,6 @@ class SequentialPasswordGenerator:
             if mobile_clean:
                 info_pieces.extend([mobile_clean, mobile_clean[-4:], mobile_clean[-6:]])
         
-        # Single pieces
         for p in info_pieces:
             if p and len(p) >= 4:
                 passwords.add(p)
@@ -92,9 +86,7 @@ class SequentialPasswordGenerator:
                     passwords.add(f"{p}{num}")
                     passwords.add(f"{p}@{num}")
                     passwords.add(f"{p}#{num}")
-                    passwords.add(f"{p}{num}@")
         
-        # Two pieces
         for i in range(len(info_pieces)):
             for j in range(len(info_pieces)):
                 if i != j and info_pieces[i] and info_pieces[j]:
@@ -102,11 +94,8 @@ class SequentialPasswordGenerator:
                     p2 = info_pieces[j]
                     passwords.add(f"{p1}{p2}")
                     passwords.add(f"{p1}@{p2}")
-                    passwords.add(f"{p1}#{p2}")
                     passwords.add(f"{p2}{p1}")
-                    passwords.add(f"{p1}{p2}{random.randint(10, 99)}")
         
-        # Three pieces
         for i in range(min(5, len(info_pieces))):
             for j in range(min(5, len(info_pieces))):
                 for k in range(min(5, len(info_pieces))):
@@ -117,70 +106,43 @@ class SequentialPasswordGenerator:
                         if p1 and p2 and p3:
                             passwords.add(f"{p1}{p2}{p3}")
                             passwords.add(f"{p1}@{p2}{p3}")
-                            passwords.add(f"{p1}{p2}@{p3}")
         
         return list(passwords)
 
-    # ============================================================
-    # 2. SMART PASSWORDS (Names, Common Words)
-    # ============================================================
     def generate_smart_passwords(self):
         passwords = set()
-        
-        # Names + Numbers
         for name in self.names[:20]:
             for num in ['123', '2024', '1', '12']:
                 passwords.add(f"{name}{num}")
                 passwords.add(f"{name}@{num}")
                 passwords.add(f"{name}#{num}")
-                passwords.add(f"{name}{num}@")
                 passwords.add(f"{name.capitalize()}{num}")
                 passwords.add(f"{name.upper()}{num}")
-                passwords.add(f"{name}{num}!")
         
-        # Common Words + Numbers
         for word in self.common_words[:15]:
             for num in ['123', '2024']:
                 passwords.add(f"{word}{num}")
                 passwords.add(f"{word}@{num}")
                 passwords.add(f"{word}#{num}")
-                passwords.add(f"{word}{num}@")
                 passwords.add(f"{word.capitalize()}{num}")
-                passwords.add(f"{word.upper()}{num}")
         
-        # Name + Name
         for n1 in self.names[:10]:
             for n2 in self.names[:8]:
                 if n1 != n2:
                     passwords.add(f"{n1}{n2}")
                     passwords.add(f"{n1}@{n2}")
                     passwords.add(f"{n1}{n2}{random.randint(10, 99)}")
-                    passwords.add(f"{n1}{n2}@")
-        
-        # Common Word + Common Word
-        for w1 in self.common_words[:8]:
-            for w2 in self.common_words[:6]:
-                if w1 != w2:
-                    passwords.add(f"{w1}{w2}")
-                    passwords.add(f"{w1}@{w2}")
-                    passwords.add(f"{w1}{w2}{random.randint(10, 99)}")
         
         return list(passwords)
 
-    # ============================================================
-    # 3. SEQUENTIAL PASSWORDS (5 to 100 chars) - FAST
-    # ============================================================
-    def generate_sequential_passwords(self, length, batch_size=1000):
-        """Generate sequential passwords of specific length - OPTIMIZED for speed"""
+    def generate_sequential_passwords(self, length, batch_size=1500):
         passwords = []
         chars = self.all_chars
         total_combinations = len(chars) ** length
         
-        # Start from where we left off
         start_index = self.char_index
         end_index = min(start_index + batch_size, total_combinations)
         
-        # Fast generation using numeric conversion
         for idx in range(start_index, end_index):
             pwd = ''
             temp = idx
@@ -190,20 +152,15 @@ class SequentialPasswordGenerator:
             passwords.append(pwd)
             self.char_index += 1
         
-        # If we've exhausted this length, move to next
         if self.char_index >= total_combinations:
             self.current_length += 1
             self.char_index = 0
         
         return passwords
 
-    # ============================================================
-    # GET NEXT PASSWORDS WITH PRIORITY
-    # ============================================================
-    def get_next_passwords(self, user_info=None, batch_size=1000):
+    def get_next_passwords(self, user_info=None, batch_size=1500):
         new_passwords = []
         
-        # Stage 0: User Info Based (Highest Priority)
         if user_info and self.generator_mode == 0:
             info_passwords = self.generate_from_user_info(user_info)
             for pwd in info_passwords:
@@ -215,7 +172,6 @@ class SequentialPasswordGenerator:
             self.generator_mode = 1
             self.current_length = 5
         
-        # Stage 1: Smart Passwords (5+ characters)
         if self.generator_mode == 1:
             smart_passwords = self.generate_smart_passwords()
             for pwd in smart_passwords:
@@ -228,17 +184,13 @@ class SequentialPasswordGenerator:
             self.current_length = 5
             self.char_index = 0
         
-        # Stage 2: Sequential Passwords (5 to 100 chars)
         while len(new_passwords) < batch_size:
             if self.current_length > 100:
                 break
-            
-            # Generate sequential passwords of current length
             seq_passwords = self.generate_sequential_passwords(
                 self.current_length, 
                 batch_size - len(new_passwords)
             )
-            
             for pwd in seq_passwords:
                 if pwd not in self.used_passwords:
                     self.used_passwords.add(pwd)
@@ -255,7 +207,7 @@ class SequentialPasswordGenerator:
 
 
 # ============================================================
-# FAST FILE CRACKERS (Optimized)
+# FAST FILE CRACKERS
 # ============================================================
 def crack_zip_fast(file_path, password_list):
     for pwd in password_list:
@@ -397,7 +349,7 @@ def get_auto_buttons():
                 {"text": "2️⃣ AUTO (Direct)", "callback_data": "auto_direct"}
             ],
             [
-                {"text": "🛑 /stop", "callback_data": "stop_cracking"}
+                {"text": "🛑 /stop & /start to new file password 🔑", "callback_data": "stop_cracking"}
             ]
         ]
     }
@@ -415,13 +367,13 @@ def join_verify_keyboard():
 
 
 # ============================================================
-# CRACK IN BACKGROUND — SEQUENTIAL 5 TO 100 CHARS (10000/sec)
+# CRACK IN BACKGROUND — SEQUENTIAL 5 TO 100 CHARS (1500/sec)
 # ============================================================
 def crack_in_background_sequential(chat_id, file_path, file_name, ext, user_info=None):
     try:
         generator = SequentialPasswordGenerator()
         total_tried = 0
-        batch_size = 2000  # Increased for 10000/sec speed
+        batch_size = 1500
         start_time = time.time()
         found = False
         current_length = 5
@@ -433,10 +385,9 @@ def crack_in_background_sequential(chat_id, file_path, file_name, ext, user_info
         active_cracking[chat_id]['thread'] = threading.current_thread()
         active_cracking[chat_id]['stop_flag'] = False
         
-        send_message(chat_id, f"⚡ *Sequential Brute-Force Started*\n\n📊 Starting from {current_length} characters\n⏳ Target: Up to 100 characters\n🚀 Speed: ~10,000 passwords/sec\n\n_Type /stop to cancel_", parse_mode='Markdown')
+        send_message(chat_id, f"⚡ *Sequential Brute-Force Started*\n\n📊 Starting from {current_length} characters\n⏳ Target: Up to 100 characters\n\n_Type /stop to cancel_", parse_mode='Markdown')
         
         while not active_cracking[chat_id].get('stop_flag', False):
-            # Get next batch of passwords
             password_list = generator.get_next_passwords(user_info, batch_size)
             
             if not password_list:
@@ -447,23 +398,19 @@ def crack_in_background_sequential(chat_id, file_path, file_name, ext, user_info
             total_tried += len(password_list)
             current_length = generator.current_length
             
-            # Send progress update every 5000 passwords or every 0.5 seconds
+            # Send progress update every 5000 passwords
             current_time = time.time()
-            if total_tried % 5000 == 0 or (current_time - last_progress_time) > 0.5:
-                elapsed = current_time - start_time
-                speed = int(total_tried / elapsed) if elapsed > 0 else 0
+            if total_tried % 5000 == 0 or (current_time - last_progress_time) > 2.0:
                 send_message(
                     chat_id, 
                     f"🔄 *Tried {total_tried:,} passwords...*\n"
                     f"📊 Current length: {current_length} chars\n"
-                    f"🚀 Speed: {speed:,} passwords/sec\n"
                     f"⏳ Still searching...\n"
                     f"_Type /stop to cancel_", 
                     parse_mode='Markdown'
                 )
                 last_progress_time = current_time
             
-            # Try to crack (try in chunks for speed)
             password = crack_file_fast(file_path, ext, password_list)
             
             if password:
@@ -475,7 +422,6 @@ def crack_in_background_sequential(chat_id, file_path, file_name, ext, user_info
                     f"📁 {file_name}\n"
                     f"📊 Tried: {total_tried:,} passwords\n"
                     f"⚡ Time: {elapsed:.2f}s\n"
-                    f"🚀 Avg Speed: {int(total_tried/elapsed):,}/s\n"
                     f"🔢 Password length: {len(password)} chars",
                     parse_mode='Markdown'
                 )
@@ -543,7 +489,7 @@ def webhook():
                     if not check_channel_membership(user_id):
                         send_message(chat_id, "🔴 *Access Denied!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
                     else:
-                        send_message(chat_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n⚡ *Sequential Mode: 5 → 100 chars*\n🚀 *Speed: 10,000+ passwords/sec*\n📁 *Send me any password protected file.*\n\n_Will keep generating until found!_", parse_mode='Markdown')
+                        send_message(chat_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n⚡ *Sequential Mode: 5 → 100 chars*\n📁 *Send me any password protected file.*\n\n_Will keep generating until found!_", parse_mode='Markdown')
                     return jsonify({"status": "ok"}), 200
 
                 if text == '/stop' or text == '/cancel':
@@ -665,7 +611,7 @@ def webhook():
                     answer_callback(callback_id)
                     return jsonify({"status": "ok"}), 200
 
-                edit_message(chat_id, message_id, "⚡ *Sequential mode activated (Direct)...*\n📊 5 → 100 characters\n🚀 10,000+ passwords/sec\n⏳ Will keep generating until found!\n_Type /stop to cancel_", parse_mode='Markdown')
+                edit_message(chat_id, message_id, "⚡ *Sequential mode activated (Direct)...*\n📊 5 → 100 characters\n⏳ Will keep generating until found!\n_Type /stop to cancel_", parse_mode='Markdown')
 
                 threading.Thread(
                     target=crack_in_background_sequential,
@@ -736,8 +682,8 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print("🤖 NRTECNO SEQUENTIAL PASSWORD CRACKER STARTED...")
     print("♾️ SEQUENTIAL MODE: 5 → 100 characters")
-    print("🚀 SPEED: 10,000+ passwords/sec")
-    print("🛑 STOP BUTTON: /stop")
+    print("🚀 SPEED: 1500 passwords/sec")
+    print("🛑 STOP BUTTON: /stop & /start to new file password 🔑")
     print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
     print("🚀 Running on port", port)
 
