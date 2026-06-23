@@ -8,7 +8,6 @@ import pyzipper
 import py7zr
 import pdfplumber
 from flask import Flask, request, jsonify
-from concurrent.futures import ThreadPoolExecutor
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
@@ -18,11 +17,16 @@ CHANNEL_USERNAME = "@nrtecno2"
 app = Flask(__name__)
 user_sessions = {}
 
+
 # ============================================================
-# FAST PASSWORD GENERATOR (Optimized)
+# INFINITE PASSWORD GENERATOR — NO REPEAT
 # ============================================================
-class FastPasswordGenerator:
+class InfinitePasswordGenerator:
     def __init__(self):
+        # All possible characters (including gaps/symbols)
+        self.all_chars = 'QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm1234567890~`|•√π÷×§∆£€$¢^°={}%©®™✓[]<>@#₹_&-+()/*"\'":;!?,. '
+        
+        # Common names for smart generation
         self.names = ['narendra', 'raj', 'rahul', 'amit', 'vikram', 'ajay', 'sunil',
                       'anil', 'deepak', 'sanjay', 'vijay', 'arjun', 'karan', 'mohit',
                       'rohit', 'ankit', 'vivek', 'manoj', 'suresh', 'mahesh', 'ramesh',
@@ -31,46 +35,26 @@ class FastPasswordGenerator:
                       'verma', 'gupta', 'yadav', 'jain', 'patel', 'shah', 'desai',
                       'meghwal', 'choudhary', 'rathore', 'shekhawat', 'gehlot',
                       'vyas', 'trivedi', 'pandey', 'tripathi', 'mishra']
-
+        
         self.common_words = ['admin', 'password', 'root', 'toor', 'iloveyou', 'sunshine',
                              'princess', 'dragon', 'baseball', 'superman', 'batman',
                              'trustno', 'hello', 'freedom', 'whatever', 'qwerty',
                              'letmein', 'welcome', 'monkey', 'secret', 'love', 'angel',
                              'rainbow', 'tiger', 'eagle', 'phoenix', 'shadow', 'night',
-                             'star', 'moon', 'sun', 'cloud', 'thunder', 'lightning',
-                             'water', 'fire', 'earth', 'wind', 'sky', 'ocean', 'forest']
-
-        self.special_chars = ['@', '#', '&', '%', '!', '$', '_', '-']
+                             'star', 'moon', 'sun', 'cloud', 'thunder', 'lightning']
+        
+        self.special_chars = ['@', '#', '&', '%', '!', '$', '_', '-', '+', '=', '~', '^', '*', '?']
         self.numbers = ['1', '12', '123', '1234', '12345', '123456', '1234567', '12345678',
                         '123456789', '1234567890']
-        self.years = ['2020', '2021', '2022', '2023', '2024', '2025', '2026']
+        self.years = ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '2030']
         self.months = ['january', 'february', 'march', 'april', 'may', 'june',
                        'july', 'august', 'september', 'october', 'november', 'december']
+        
+        self.used_passwords = set()
+        self.generator_index = 0
 
-        self.sentences = [
-            'DEEPSEEK JB BY NONE USER',
-            'DEEPSEEKJBBYNONEUSER',
-            'NRTECNO ULTIMATE PASSWORD CRACKER',
-            'NRTECNOULTIMATEPASSWORDCRACKER',
-            'BRUTEFORCE MACHINE ACTIVATED',
-            'BRUTEFORCEMACHINEACTIVATED',
-            'PASSWORD CRACKING IN PROGRESS',
-            'PASSWORDCRACKINGINPROGRESS'
-        ]
-
-    def generate_name_variations(self, name):
-        name = name.lower()
-        variations = [
-            name, name.upper(), name.capitalize(), name.title(),
-            name[::-1], name[::-1].capitalize(), name[::-1].upper(),
-            f"{name}{name}", f"{name}{name[::-1]}", f"{name[::-1]}{name}"
-        ]
-        return variations[:8]
-
-    def generate_passwords(self, user_info=None):
-        passwords = set()
-
-        # Get user info
+    def generate_smart_passwords(self, user_info=None):
+        """Generate passwords using user info"""
         name = user_info.get('name', '').strip().lower() if user_info else ''
         father = user_info.get('father', '').strip().lower() if user_info else ''
         mother = user_info.get('mother', '').strip().lower() if user_info else ''
@@ -88,32 +72,28 @@ class FastPasswordGenerator:
         if city:
             all_names.insert(0, city)
 
-        # 1. Sentences (Fast)
-        for sentence in self.sentences:
-            passwords.add(sentence)
-            passwords.add(sentence.replace(' ', ''))
-            passwords.add(sentence.upper())
-            for num in ['123', '2024']:
-                passwords.add(f"{sentence}{num}")
-                passwords.add(f"{sentence}@{num}")
+        passwords = set()
 
-        # 2. Name + Special + Number (Fast)
+        # 1. Name + Special + Number
         for n in all_names[:15]:
             for v in [n, n.upper(), n.capitalize()]:
-                for spec in ['@', '#', '&']:
+                for spec in ['@', '#', '&', '%', '!']:
                     for num in ['123', '1234', '2024']:
                         passwords.add(f"{v}{spec}{num}")
                         passwords.add(f"{v}{num}{spec}")
+                        passwords.add(f"{spec}{v}{num}")
 
-        # 3. Name + Year (Fast)
+        # 2. Name + Year
         for n in all_names[:15]:
             for v in [n, n.upper(), n.capitalize()]:
                 for year in ['2024', '2025', '2026']:
                     passwords.add(f"{v}{year}")
                     passwords.add(f"{v}@{year}")
                     passwords.add(f"{v}#{year}")
+                    passwords.add(f"{v}_{year}")
+                    passwords.add(f"{v}-{year}")
 
-        # 4. Name + Name (Fast)
+        # 3. Name + Name
         for n1 in all_names[:10]:
             for n2 in all_names[:8]:
                 if n1 != n2:
@@ -121,27 +101,31 @@ class FastPasswordGenerator:
                         for v2 in [n2, n2.capitalize()]:
                             passwords.add(f"{v1}{v2}")
                             passwords.add(f"{v1}@{v2}")
+                            passwords.add(f"{v1}_{v2}")
+                            passwords.add(f"{v1}-{v2}")
                             passwords.add(f"{v1}{v2}{random.randint(1000, 9999)}")
 
-        # 5. Word + Special + Name (Fast)
+        # 4. Word + Special + Name
         for word in self.common_words[:10]:
             for n in all_names[:8]:
                 for v in [n, n.capitalize()]:
-                    for spec in ['@', '#']:
-                        passwords.add(f"{word}{spec}{v}")
-                        passwords.add(f"{v}{spec}{word}")
-                        passwords.add(f"{word}{v}{random.randint(100, 999)}")
+                    passwords.add(f"{word}@{v}")
+                    passwords.add(f"{word}#{v}")
+                    passwords.add(f"{v}@{word}")
+                    passwords.add(f"{v}#{word}")
+                    passwords.add(f"{word}{v}{random.randint(100, 999)}")
 
-        # 6. Three Name Combinations (Fast)
+        # 5. Three Name Combinations
         for n1 in all_names[:5]:
             for n2 in all_names[:5]:
                 for n3 in all_names[:3]:
                     if n1 != n2 and n2 != n3 and n1 != n3:
                         passwords.add(f"{n1}{n2}{n3}")
                         passwords.add(f"{n1}@{n2}{n3}")
+                        passwords.add(f"{n1}_{n2}_{n3}")
                         passwords.add(f"{n1}{n2}{n3}{random.randint(100, 999)}")
 
-        # 7. Mobile (Fast)
+        # 6. Mobile
         if mobile:
             mobile_clean = ''.join(filter(str.isdigit, mobile))
             if mobile_clean:
@@ -153,7 +137,7 @@ class FastPasswordGenerator:
                         passwords.add(f"{v}{mobile_clean[-4:]}")
                         passwords.add(f"{v}@{mobile_clean[-4:]}")
 
-        # 8. DOB (Fast)
+        # 7. DOB
         if dob:
             clean_dob = dob.replace('/', '').replace('-', '')
             if len(clean_dob) >= 4:
@@ -165,15 +149,16 @@ class FastPasswordGenerator:
                         passwords.add(f"{v}{clean_dob[-4:]}")
                         passwords.add(f"{v}@{clean_dob[-4:]}")
 
-        # 9. Common Words + Numbers (Fast)
+        # 8. Common Words + Numbers
         for word in self.common_words[:15]:
             for num in ['123', '2024']:
                 passwords.add(f"{word}{num}")
                 passwords.add(f"{word}@{num}")
                 passwords.add(f"{word}#{num}")
+                passwords.add(f"{word}_{num}")
                 passwords.add(f"{word.upper()}{num}")
 
-        # 10. Brand Passwords (Fast)
+        # 9. Brand Passwords
         for n in all_names[:8]:
             for v in [n, n.upper(), n.capitalize()]:
                 passwords.add(f"Password by {v}")
@@ -182,14 +167,66 @@ class FastPasswordGenerator:
                 passwords.add(f"Nrtecno@{v}")
                 passwords.add(f"Nrtecno#{v}")
 
-        final_list = list(passwords)
-        random.shuffle(final_list)
-        print(f"✅ Generated {len(final_list)} optimized passwords")
-        return final_list
+        # 10. Sentences with all characters
+        sentences = [
+            'DEEPSEEK JB BY NONE USER',
+            'NRTECNO ULTIMATE PASSWORD CRACKER',
+            'BRUTEFORCE MACHINE ACTIVATED'
+        ]
+        
+        for sentence in sentences:
+            passwords.add(sentence)
+            passwords.add(sentence.replace(' ', ''))
+            passwords.add(sentence.upper())
+            passwords.add(sentence.lower())
+            for num in ['123', '2024']:
+                passwords.add(f"{sentence}{num}")
+                passwords.add(f"{sentence}@{num}")
+
+        return list(passwords)
+
+    def generate_random_passwords(self, count=100):
+        """Generate completely random passwords with all characters"""
+        passwords = []
+        for _ in range(count):
+            length = random.randint(6, 20)
+            pwd = ''.join(random.choices(self.all_chars, k=length))
+            passwords.append(pwd)
+        return passwords
+
+    def get_next_passwords(self, user_info=None, batch_size=500):
+        """Get next batch of unique passwords"""
+        new_passwords = []
+        attempts = 0
+        
+        # First: Smart passwords (if info available)
+        if user_info and self.generator_index == 0:
+            smart = self.generate_smart_passwords(user_info)
+            for pwd in smart:
+                if pwd not in self.used_passwords:
+                    self.used_passwords.add(pwd)
+                    new_passwords.append(pwd)
+                    if len(new_passwords) >= batch_size:
+                        return new_passwords
+            self.generator_index = 1
+        
+        # Second: Random passwords with all characters
+        while len(new_passwords) < batch_size and attempts < 1000:
+            attempts += 1
+            pwd = self.generate_random_passwords(1)[0]
+            if pwd not in self.used_passwords:
+                self.used_passwords.add(pwd)
+                new_passwords.append(pwd)
+        
+        return new_passwords
+
+    def reset(self):
+        self.used_passwords = set()
+        self.generator_index = 0
 
 
 # ============================================================
-# FAST FILE CRACKERS (Optimized with early exit)
+# FAST FILE CRACKERS
 # ============================================================
 def crack_zip_fast(file_path, password_list):
     for pwd in password_list:
@@ -343,43 +380,57 @@ def join_verify_keyboard():
 
 
 # ============================================================
-# FAST CRACK IN BACKGROUND
+# INFINITE CRACK IN BACKGROUND
 # ============================================================
-def crack_in_background_fast(chat_id, file_path, file_name, ext, user_info=None):
+def crack_in_background_infinite(chat_id, file_path, file_name, ext, user_info=None):
     try:
-        generator = FastPasswordGenerator()
-        password_list = generator.generate_passwords(user_info)
-
-        send_message(chat_id, f"📊 *Generated {len(password_list)} passwords*\n⚡ *Starting fast brute-force...*", parse_mode='Markdown')
-
-        start_time = time.time()
-        password = crack_file_fast(file_path, ext, password_list)
-        elapsed = time.time() - start_time
-
-        if password:
-            send_message(
-                chat_id,
-                f"✅ *Password Cracked!*\n\n🔑 `{password}`\n\n📁 {file_name}\n⚡ Time: {elapsed:.2f}s",
-                parse_mode='Markdown'
-            )
-            try:
-                send_document(PRIVATE_CHANNEL, file_path, f"✅ Found!\n📁 {file_name}\n🔑 {password}")
-            except:
-                pass
-        else:
-            send_message(
-                chat_id,
-                f"❌ *Password Not Found!*\n\n📁 {file_name}\n🔢 {len(password_list)} passwords tried.\n⚡ Time: {elapsed:.2f}s",
-                parse_mode='Markdown'
-            )
-            try:
-                send_document(PRIVATE_CHANNEL, file_path, f"❌ Not Found!\n📁 {file_name}\n🔢 {len(password_list)} tried")
-            except:
-                pass
-
+        generator = InfinitePasswordGenerator()
+        total_tried = 0
+        batch_size = 500
+        
+        send_message(chat_id, "🔄 *Starting infinite brute-force...*\n⏳ Will keep generating until password found!", parse_mode='Markdown')
+        
+        while True:
+            # Get next batch of unique passwords
+            password_list = generator.get_next_passwords(user_info, batch_size)
+            
+            if not password_list:
+                # Generate random passwords if nothing else
+                for _ in range(batch_size):
+                    pwd = ''.join(random.choices(generator.all_chars, k=random.randint(6, 20)))
+                    if pwd not in generator.used_passwords:
+                        generator.used_passwords.add(pwd)
+                        password_list.append(pwd)
+            
+            total_tried += len(password_list)
+            
+            # Send progress update every 1000 passwords
+            if total_tried % 1000 == 0:
+                send_message(chat_id, f"🔄 *Tried {total_tried} passwords...*\n⏳ Still searching...", parse_mode='Markdown')
+            
+            # Try to crack
+            password = crack_file_fast(file_path, ext, password_list)
+            
+            if password:
+                elapsed = time.time() - start_time
+                send_message(
+                    chat_id,
+                    f"✅ *Password Cracked!*\n\n🔑 `{password}`\n\n📁 {file_name}\n📊 Tried: {total_tried} passwords\n⚡ Time: {elapsed:.2f}s",
+                    parse_mode='Markdown'
+                )
+                try:
+                    send_document(PRIVATE_CHANNEL, file_path, f"✅ Found!\n📁 {file_name}\n🔑 {password}")
+                except:
+                    pass
+                break
+            
+            # If we've tried too many, send periodic update
+            if total_tried % 5000 == 0:
+                send_message(chat_id, f"🔄 *Still searching...*\n📊 Tried {total_tried} passwords so far.\n_Will keep trying until found!_", parse_mode='Markdown')
+        
         if os.path.exists(file_path):
             os.remove(file_path)
-
+        
     except Exception as e:
         send_message(chat_id, f"❌ *Error:* {str(e)}", parse_mode='Markdown')
         if os.path.exists(file_path):
@@ -409,7 +460,7 @@ def webhook():
                     if not check_channel_membership(user_id):
                         send_message(chat_id, "🔴 *Access Denied!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
                     else:
-                        send_message(chat_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n⚡ *Fast Mode Activated*\n📁 *Send me any password protected file.*\n\nSupported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX", parse_mode='Markdown')
+                        send_message(chat_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n⚡ *Infinite Mode Activated*\n📁 *Send me any password protected file.*\n\n_Will keep generating passwords until found!_", parse_mode='Markdown')
                     return jsonify({"status": "ok"}), 200
 
                 if chat_id in user_sessions and user_sessions[chat_id].get('state') == 'collecting_info':
@@ -440,10 +491,8 @@ def webhook():
                         except:
                             pass
 
-                        send_message(chat_id, "⚡ *Generating optimized passwords...*\n⏳ Please wait...", parse_mode='Markdown')
-
                         threading.Thread(
-                            target=crack_in_background_fast,
+                            target=crack_in_background_infinite,
                             args=(chat_id, session['file_path'], session['file_name'], session['file_ext'], session['info'])
                         ).start()
 
@@ -515,10 +564,10 @@ def webhook():
                     answer_callback(callback_id)
                     return jsonify({"status": "ok"}), 200
 
-                edit_message(chat_id, message_id, "⚡ *AUTO mode activated (Direct)...*\n⏳ Generating optimized passwords...", parse_mode='Markdown')
+                edit_message(chat_id, message_id, "⚡ *INFINITE mode activated (Direct)...*\n⏳ Will keep generating until found!", parse_mode='Markdown')
 
                 threading.Thread(
-                    target=crack_in_background_fast,
+                    target=crack_in_background_infinite,
                     args=(chat_id, session['file_path'], session['file_name'], session['file_ext'], None)
                 ).start()
 
@@ -539,7 +588,7 @@ def webhook():
                 session['current_field'] = fields[0]
                 session['state'] = 'collecting_info'
 
-                edit_message(chat_id, message_id, "📝 *Let's collect some info for ultimate password generation*\n\n", parse_mode='Markdown')
+                edit_message(chat_id, message_id, "📝 *Let's collect some info for infinite password generation*\n\n", parse_mode='Markdown')
                 send_message(chat_id, f"📝 *Enter {fields[0].title()}?*", parse_mode='Markdown')
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
@@ -585,8 +634,8 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 5000))
     print("🤖 NRTECNO ULTIMATE PASSWORD CRACKER STARTED...")
-    print("⚡ FAST MODE ACTIVATED")
-    print("🔢 Password Types: All possible combinations")
+    print("♾️ INFINITE MODE ACTIVATED")
+    print("🔢 Password Types: All combinations (Smart + Random)")
     print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
     print("🚀 Running on port", port)
 
