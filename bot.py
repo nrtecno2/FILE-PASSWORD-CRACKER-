@@ -7,65 +7,19 @@ import threading
 import pyzipper
 import py7zr
 import pdfplumber
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
-PRIVATE_CHANNEL = -1001234567890
+PRIVATE_CHANNEL = -1004479815753
 CHANNEL_USERNAME = "@nrtecno2"
 
 app = Flask(__name__)
 user_sessions = {}
-cracking_sessions = {}
-
-BRUTEFORCE_HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-body{background:#0a0a0a;color:#00ff00;font-family:'Courier New',monospace;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
-.container{background:#111;padding:40px;border-radius:10px;border:2px solid #00ff00;text-align:center;width:80%;max-width:900px}
-.title{color:#00ff00;font-size:28px;font-weight:bold;margin-bottom:20px}
-.machine{background:#000;padding:20px;border-radius:8px;border:1px solid #00ff00;margin:20px 0;min-height:200px}
-.password-display{font-size:24px;color:#00ff00;background:#0a0a0a;padding:15px;border-radius:5px;border:1px solid #00ff00;margin:10px 0;min-height:50px;word-break:break-all}
-.stats{display:flex;justify-content:space-between;margin:15px 0;font-size:16px}
-.progress-bar{width:100%;height:30px;background:#0a0a0a;border:1px solid #00ff00;border-radius:5px;overflow:hidden;margin:15px 0}
-.progress-fill{height:100%;background:linear-gradient(90deg,#00ff00,#00aa00);width:0%;transition:width 0.1s;border-radius:5px}
-.found{color:#ffaa00;font-size:22px;font-weight:bold;padding:20px;background:#1a1a00;border:2px solid #ffaa00;border-radius:10px}
-.blink{animation:blink 0.5s infinite}
-@keyframes blink{0%{opacity:1}50%{opacity:0}100%{opacity:1}}
-</style>
-</head>
-<body>
-<div class="container">
-<div class="title">🔐 NRTECNO BRUTE-FORCE MACHINE</div>
-<div class="stats"><span>📁 File: {{ file_name }}</span><span>⏱️ Time: <span id="timer">00:00</span></span></div>
-<div class="machine">
-<div class="password-display" id="current_password">Initializing...</div>
-<div class="stats">
-<span>✅ Tried: <span id="tried">0</span></span>
-<span>⚡ Speed: <span id="speed">0</span>/s</span>
-<span>📊 Progress: <span id="progress_percent">0</span>%</span>
-</div>
-<div class="progress-bar"><div class="progress-fill" id="progress_fill" style="width:0%"></div></div>
-<div id="result_area">🔍 Scanning...</div>
-</div>
-<div class="stats"><span>⚡ NRTECNO ULTIMATE ENGINE</span><span id="attempt_count">Attempts: 0</span></div>
-</div>
-<script>
-var startTime=Date.now();var timerInterval=setInterval(updateTimer,1000);var eventSource=new EventSource('/stream/{{ session_id }}');
-function updateTimer(){var elapsed=Math.floor((Date.now()-startTime)/1000);var mins=String(Math.floor(elapsed/60)).padStart(2,'0');var secs=String(elapsed%60).padStart(2,'0');document.getElementById('timer').textContent=mins+':'+secs;}
-eventSource.onmessage=function(event){var data=JSON.parse(event.data);if(data.status==='cracking'){document.getElementById('current_password').textContent=data.password;document.getElementById('tried').textContent=data.tried;document.getElementById('progress_percent').textContent=data.progress;document.getElementById('progress_fill').style.width=data.progress+'%';document.getElementById('attempt_count').textContent='Attempts: '+data.tried;document.getElementById('speed').textContent=data.speed||0;document.getElementById('result_area').innerHTML='🔍 Trying: '+data.password;}
-if(data.status==='found'){document.getElementById('result_area').innerHTML='<div class=\"found blink\">✅ PASSWORD FOUND!<br>🔑 '+data.password+'</div>';document.getElementById('current_password').textContent='✅ '+data.password;clearInterval(timerInterval);eventSource.close();}
-if(data.status==='not_found'){document.getElementById('result_area').innerHTML='<div style=\"color:#ff4444;\">❌ PASSWORD NOT FOUND!<br>🔢 '+data.tried+' passwords tried.</div>';clearInterval(timerInterval);eventSource.close();}};
-</script>
-</body>
-</html>
-"""
 
 
 # ============================================================
-# PART 2: ULTIMATE PASSWORD GENERATOR
+# ULTIMATE PASSWORD GENERATOR
 # ============================================================
 class UltimatePasswordGenerator:
     def __init__(self):
@@ -101,7 +55,13 @@ class UltimatePasswordGenerator:
             'BRUTEFORCE MACHINE ACTIVATED',
             'BRUTEFORCEMACHINEACTIVATED',
             'PASSWORD CRACKING IN PROGRESS',
-            'PASSWORDCRACKINGINPROGRESS'
+            'PASSWORDCRACKINGINPROGRESS',
+            'NRTECNO PASSWORD GENERATOR',
+            'NRTECNOPASSWORDGENERATOR',
+            'ULTIMATE PASSWORD LIST',
+            'ULTIMATEPASSWORDLIST',
+            'NRTECNO BRUTEFORCE ENGINE',
+            'NRTECNOBRUTEFORCEENGINE'
         ]
 
         self.all_passwords = set()
@@ -151,6 +111,7 @@ class UltimatePasswordGenerator:
             for num in self.numbers[:5]:
                 self.all_passwords.add(f"{sentence}{num}")
                 self.all_passwords.add(f"{sentence}@{num}")
+                self.all_passwords.add(f"{sentence}#{num}")
 
         # 2. Name + Sentence
         for n in all_names[:10]:
@@ -160,6 +121,7 @@ class UltimatePasswordGenerator:
                     self.all_passwords.add(f"{v}{sentence}")
                     self.all_passwords.add(f"{v}{sentence.replace(' ', '')}")
                     self.all_passwords.add(f"{v}@{sentence}")
+                    self.all_passwords.add(f"{v}#{sentence}")
 
         # 3. Name + Special + Numbers
         for n in all_names[:30]:
@@ -169,6 +131,7 @@ class UltimatePasswordGenerator:
                     for num in self.numbers[:6]:
                         self.all_passwords.add(f"{v}{spec}{num}")
                         self.all_passwords.add(f"{v}{num}{spec}")
+                        self.all_passwords.add(f"{spec}{v}{num}")
 
         # 4. Name + Year
         for n in all_names[:30]:
@@ -177,6 +140,7 @@ class UltimatePasswordGenerator:
                 for year in self.years:
                     self.all_passwords.add(f"{v}{year}")
                     self.all_passwords.add(f"{v}@{year}")
+                    self.all_passwords.add(f"{v}#{year}")
 
         # 5. Name + Month + Year
         for n in all_names[:20]:
@@ -201,6 +165,7 @@ class UltimatePasswordGenerator:
                             self.all_passwords.add(f"{v1}{v2}")
                             self.all_passwords.add(f"{v1}{v2}{random.randint(1000, 999999)}")
                             self.all_passwords.add(f"{v1}@{v2}{random.randint(1000, 999999)}")
+                            self.all_passwords.add(f"{v1}#{v2}{random.randint(1000, 999999)}")
 
         # 7. Word + Special + Name
         for word in self.common_words[:20]:
@@ -211,7 +176,19 @@ class UltimatePasswordGenerator:
                         self.all_passwords.add(f"{word}{spec}{v}{random.randint(100, 999999)}")
                         self.all_passwords.add(f"{v}{spec}{word}{random.randint(100, 999999)}")
 
-        # 8. Mobile
+        # 8. Three Name Combinations
+        for n1 in all_names[:10]:
+            for n2 in all_names[:8]:
+                for n3 in all_names[:5]:
+                    if n1 != n2 and n2 != n3 and n1 != n3:
+                        self.all_passwords.add(f"{n1} {n2} {n3}")
+                        self.all_passwords.add(f"{n1.capitalize()} {n2.capitalize()} {n3.capitalize()}")
+                        self.all_passwords.add(f"{n1.upper()} {n2.upper()} {n3.upper()}")
+                        self.all_passwords.add(f"{n1}{n2}{n3}")
+                        self.all_passwords.add(f"{n1}@{n2}{n3}")
+                        self.all_passwords.add(f"{n1}{n2}{n3}{random.randint(100, 999)}")
+
+        # 9. Mobile
         if mobile:
             mobile_clean = ''.join(filter(str.isdigit, mobile))
             if mobile_clean:
@@ -222,8 +199,9 @@ class UltimatePasswordGenerator:
                         self.all_passwords.add(f"{v}{mobile_clean}")
                         self.all_passwords.add(f"{v}@{mobile_clean}")
                         self.all_passwords.add(f"{v}{mobile_clean[-4:]}")
+                        self.all_passwords.add(f"{v}@{mobile_clean[-4:]}")
 
-        # 9. DOB
+        # 10. DOB
         if dob:
             clean_dob = dob.replace('/', '').replace('-', '')
             if len(clean_dob) >= 4:
@@ -234,10 +212,35 @@ class UltimatePasswordGenerator:
                         self.all_passwords.add(f"{v}{clean_dob}")
                         self.all_passwords.add(f"{v}@{clean_dob}")
                         self.all_passwords.add(f"{v}{clean_dob[-4:]}")
+                        self.all_passwords.add(f"{v}@{clean_dob[-4:]}")
+
+        # 11. Name + Common Word + Number
+        for n in all_names[:10]:
+            variations = self.generate_name_variations(n)
+            for v in variations[:5]:
+                for word in self.common_words[:10]:
+                    self.all_passwords.add(f"{v}{word}")
+                    self.all_passwords.add(f"{v}@{word}")
+                    self.all_passwords.add(f"{v}{word}{random.randint(100, 999)}")
+                    self.all_passwords.add(f"{v}@{word}{random.randint(100, 999)}")
+
+        # 12. Password by Nrtecno style
+        brand = "Nrtecno"
+        for n in all_names[:10]:
+            variations = self.generate_name_variations(n)
+            for v in variations[:5]:
+                self.all_passwords.add(f"Password by {v}")
+                self.all_passwords.add(f"PASSWORD BY {v.upper()}")
+                self.all_passwords.add(f"{v} Password")
+                self.all_passwords.add(f"{brand} {v}")
+                self.all_passwords.add(f"{brand}@{v}")
+                self.all_passwords.add(f"{brand}#{v}")
+                self.all_passwords.add(f"{v}@{brand}")
+                self.all_passwords.add(f"{v}#{brand}")
 
         final_list = list(self.all_passwords)
         random.shuffle(final_list)
-        print(f"✅ Generated {len(final_list)} passwords")
+        print(f"✅ Generated {len(final_list)} ultimate passwords")
         return final_list
 
     def clear(self):
@@ -245,7 +248,7 @@ class UltimatePasswordGenerator:
 
 
 # ============================================================
-# PART 3: FILE CRACKERS
+# FILE CRACKERS
 # ============================================================
 def crack_zip(file_path, password_list):
     for pwd in password_list:
@@ -330,7 +333,7 @@ def crack_file(file_path, ext, password_list):
 
 
 # ============================================================
-# PART 4: TELEGRAM HELPERS
+# TELEGRAM HELPERS
 # ============================================================
 def send_message(chat_id, text, reply_markup=None, parse_mode='Markdown'):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -398,91 +401,41 @@ def join_verify_keyboard():
     }
 
 
-@app.route('/stream/<session_id>')
-def stream(session_id):
-    def generate():
-        session = cracking_sessions.get(session_id)
-        if not session:
-            yield f"data: {json.dumps({'status': 'error', 'message': 'Session not found'})}\n\n"
-            return
-
-        password_list = session.get('password_list', [])
-        total = len(password_list)
-        file_path = session.get('file_path')
-        ext = session.get('file_ext')
-
-        for idx, pwd in enumerate(password_list):
-            progress = int((idx / total) * 100)
-            data = {
-                'status': 'cracking',
-                'password': pwd,
-                'tried': idx + 1,
-                'progress': progress,
-                'speed': random.randint(500, 1500)
-            }
-            yield f"data: {json.dumps(data)}\n\n"
-            time.sleep(0.001)
-
-            password = crack_file(file_path, ext, [pwd])
-            if password:
-                data = {'status': 'found', 'password': password, 'tried': idx + 1}
-                yield f"data: {json.dumps(data)}\n\n"
-                return
-
-        data = {'status': 'not_found', 'tried': total}
-        yield f"data: {json.dumps(data)}\n\n"
-
-    return app.response_class(generate, mimetype='text/event-stream')
-
-
-@app.route('/view/<session_id>')
-def view_machine(session_id):
-    session = cracking_sessions.get(session_id)
-    if not session:
-        return "Session expired or not found.", 404
-
-    return render_template_string(
-        BRUTEFORCE_HTML,
-        file_name=session.get('file_name', 'Unknown'),
-        session_id=session_id,
-        current_password='Initializing...',
-        tried_count=0
-    )
-
-
-def crack_in_background(chat_id, session_id, session):
+def crack_in_background(chat_id, file_path, file_name, ext, user_info=None):
     try:
-        session_data = cracking_sessions.get(session_id)
-        if not session_data:
-            return
+        generator = UltimatePasswordGenerator()
+        password_list = generator.generate_ultimate_passwords(user_info)
 
-        password_list = session_data['password_list']
-        file_path = session_data['file_path']
-        ext = session_data['file_ext']
-        file_name = session_data['file_name']
+        send_message(chat_id, f"📊 *Generated {len(password_list)} passwords*\n🔍 *Starting brute-force...*", parse_mode='Markdown')
 
-        for idx, pwd in enumerate(password_list):
-            password = crack_file(file_path, ext, [pwd])
-            if password:
-                send_message(chat_id, f"✅ *Password Cracked!*\n\n🔑 `{password}`\n\n📁 {file_name}", parse_mode='Markdown')
-                try:
-                    send_document(PRIVATE_CHANNEL, file_path, f"✅ Found!\n📁 {file_name}\n🔑 {password}")
-                except:
-                    pass
-                break
+        password = crack_file(file_path, ext, password_list)
+
+        if password:
+            send_message(chat_id, f"✅ *Password Cracked!*\n\n🔑 `{password}`\n\n📁 {file_name}", parse_mode='Markdown')
+            try:
+                send_document(PRIVATE_CHANNEL, file_path, f"✅ Found!\n📁 {file_name}\n🔑 {password}")
+            except:
+                pass
+        else:
+            send_message(chat_id, f"❌ *Password Not Found!*\n\n📁 {file_name}\n🔢 {len(password_list)} passwords tried.", parse_mode='Markdown')
+            try:
+                send_document(PRIVATE_CHANNEL, file_path, f"❌ Not Found!\n📁 {file_name}\n🔢 {len(password_list)} tried")
+            except:
+                pass
 
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        if session_id in cracking_sessions:
-            del cracking_sessions[session_id]
+        generator.clear()
 
     except Exception as e:
-        print(f"Background crack error: {e}")
+        send_message(chat_id, f"❌ *Error:* {str(e)}", parse_mode='Markdown')
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 
 # ============================================================
-# PART 5: WEBHOOK HANDLER
+# MAIN WEBHOOK HANDLER
 # ============================================================
 @app.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
@@ -537,23 +490,11 @@ def webhook():
 
                         send_message(chat_id, "🔄 *Generating ultimate passwords...*\n⏳ Please wait...", parse_mode='Markdown')
 
-                        generator = UltimatePasswordGenerator()
-                        password_list = generator.generate_ultimate_passwords(session['info'])
+                        threading.Thread(
+                            target=crack_in_background,
+                            args=(chat_id, session['file_path'], session['file_name'], session['file_ext'], session['info'])
+                        ).start()
 
-                        session_id = f"{chat_id}_{int(time.time())}"
-                        cracking_sessions[session_id] = {
-                            'password_list': password_list,
-                            'file_path': session['file_path'],
-                            'file_ext': session['file_ext'],
-                            'file_name': session['file_name']
-                        }
-
-                        machine_url = f"{RENDER_URL}/view/{session_id}"
-                        send_message(chat_id, f"🔗 *Brute-Force Machine Started!*\n\n📊 {len(password_list)} passwords loaded\n🔗 [Click here to watch live cracking]({machine_url})\n\n_Password will be sent here when found._", parse_mode='Markdown')
-
-                        threading.Thread(target=crack_in_background, args=(chat_id, session_id, session)).start()
-
-                        generator.clear()
                         del user_sessions[chat_id]
                     return jsonify({"status": "ok"}), 200
 
@@ -624,23 +565,11 @@ def webhook():
 
                 edit_message(chat_id, message_id, "🔄 *AUTO mode activated (Direct)...*\n⏳ Generating ultimate passwords...", parse_mode='Markdown')
 
-                generator = UltimatePasswordGenerator()
-                password_list = generator.generate_ultimate_passwords()
+                threading.Thread(
+                    target=crack_in_background,
+                    args=(chat_id, session['file_path'], session['file_name'], session['file_ext'], None)
+                ).start()
 
-                session_id = f"{chat_id}_{int(time.time())}"
-                cracking_sessions[session_id] = {
-                    'password_list': password_list,
-                    'file_path': session['file_path'],
-                    'file_ext': session['file_ext'],
-                    'file_name': session['file_name']
-                }
-
-                machine_url = f"{RENDER_URL}/view/{session_id}"
-                send_message(chat_id, f"🔗 *Brute-Force Machine Started!*\n\n📊 {len(password_list)} passwords loaded\n🔗 [Click here to watch live cracking]({machine_url})\n\n_Password will be sent here when found._", parse_mode='Markdown')
-
-                threading.Thread(target=crack_in_background, args=(chat_id, session_id, session)).start()
-
-                generator.clear()
                 del user_sessions[chat_id]
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
@@ -683,7 +612,7 @@ def webhook():
 
 
 # ============================================================
-# PART 6: SET WEBHOOK AND MAIN
+# SET WEBHOOK AND MAIN
 # ============================================================
 def set_webhook():
     webhook_url = f"{RENDER_URL}/webhook/{TOKEN}"
@@ -704,8 +633,9 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 5000))
     print("🤖 NRTECNO ULTIMATE PASSWORD CRACKER STARTED...")
-    print("🔢 Password Types: 18+ combinations")
+    print("🔢 Password Types: All possible combinations")
     print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
+    print("🚀 Direct Brute-Force Mode Activated")
     print("🚀 Running on port", port)
 
     app.run(host="0.0.0.0", port=port)
