@@ -547,7 +547,7 @@ def crack_in_background(chat_id, file_path, file_name, ext, user_info=None):
                     chat_id, 
                     f"🔄 *Tried {total_tried:,} passwords...*\n"
                     f"⏳ Still searching...\n"
-                    f"_Type /stop to cancel_", 
+                    f"_Type /stop to cancel & /start to new file password_", 
                     parse_mode='Markdown'
                 )
                 last_progress_time = current_time
