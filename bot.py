@@ -11,7 +11,7 @@ from flask import Flask, request, jsonify, render_template_string
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
-PRIVATE_CHANNEL = -1004479815753
+PRIVATE_CHANNEL = -1001234567890
 CHANNEL_USERNAME = "@nrtecno2"
 
 app = Flask(__name__)
@@ -62,32 +62,37 @@ if(data.status==='not_found'){document.getElementById('result_area').innerHTML='
 </body>
 </html>
 """
+
+
+# ============================================================
+# PART 2: ULTIMATE PASSWORD GENERATOR
+# ============================================================
 class UltimatePasswordGenerator:
     def __init__(self):
         self.names = ['narendra', 'raj', 'rahul', 'amit', 'vikram', 'ajay', 'sunil',
-                     'anil', 'deepak', 'sanjay', 'vijay', 'arjun', 'karan', 'mohit',
-                     'rohit', 'ankit', 'vivek', 'manoj', 'suresh', 'mahesh', 'ramesh',
-                     'dinesh', 'ganesh', 'naveen', 'pawan', 'sachin', 'rajesh', 'kapil',
-                     'mukesh', 'ravi', 'ashok', 'shyam', 'kumar', 'singh', 'sharma',
-                     'verma', 'gupta', 'yadav', 'jain', 'patel', 'shah', 'desai',
-                     'meghwal', 'choudhary', 'rathore', 'shekhawat', 'gehlot',
-                     'vyas', 'trivedi', 'pandey', 'tripathi', 'mishra']
-        
+                      'anil', 'deepak', 'sanjay', 'vijay', 'arjun', 'karan', 'mohit',
+                      'rohit', 'ankit', 'vivek', 'manoj', 'suresh', 'mahesh', 'ramesh',
+                      'dinesh', 'ganesh', 'naveen', 'pawan', 'sachin', 'rajesh', 'kapil',
+                      'mukesh', 'ravi', 'ashok', 'shyam', 'kumar', 'singh', 'sharma',
+                      'verma', 'gupta', 'yadav', 'jain', 'patel', 'shah', 'desai',
+                      'meghwal', 'choudhary', 'rathore', 'shekhawat', 'gehlot',
+                      'vyas', 'trivedi', 'pandey', 'tripathi', 'mishra']
+
         self.common_words = ['admin', 'password', 'root', 'toor', 'iloveyou', 'sunshine',
-                            'princess', 'dragon', 'baseball', 'superman', 'batman',
-                            'trustno', 'hello', 'freedom', 'whatever', 'qwerty',
-                            'letmein', 'welcome', 'monkey', 'secret', 'love', 'angel',
-                            'rainbow', 'tiger', 'eagle', 'phoenix', 'shadow', 'night',
-                            'star', 'moon', 'sun', 'cloud', 'thunder', 'lightning',
-                            'water', 'fire', 'earth', 'wind', 'sky', 'ocean', 'forest']
-        
+                             'princess', 'dragon', 'baseball', 'superman', 'batman',
+                             'trustno', 'hello', 'freedom', 'whatever', 'qwerty',
+                             'letmein', 'welcome', 'monkey', 'secret', 'love', 'angel',
+                             'rainbow', 'tiger', 'eagle', 'phoenix', 'shadow', 'night',
+                             'star', 'moon', 'sun', 'cloud', 'thunder', 'lightning',
+                             'water', 'fire', 'earth', 'wind', 'sky', 'ocean', 'forest']
+
         self.special_chars = ['@', '#', '&', '%', '!', '$', '_', '-', '+', '=', '~', '^', '*', '?']
-        self.numbers = ['1','12','123','1234','12345','123456','1234567','12345678',
-                       '123456789','1234567890']
-        self.years = ['2020','2021','2022','2023','2024','2025','2026','2027','2028','2029','2030']
+        self.numbers = ['1', '12', '123', '1234', '12345', '123456', '1234567', '12345678',
+                        '123456789', '1234567890']
+        self.years = ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '2030']
         self.months = ['january', 'february', 'march', 'april', 'may', 'june',
-                      'july', 'august', 'september', 'october', 'november', 'december']
-        
+                       'july', 'august', 'september', 'october', 'november', 'december']
+
         self.sentences = [
             'DEEPSEEK JB BY NONE USER',
             'DEEPSEEKJBBYNONEUSER',
@@ -98,7 +103,7 @@ class UltimatePasswordGenerator:
             'PASSWORD CRACKING IN PROGRESS',
             'PASSWORDCRACKINGINPROGRESS'
         ]
-        
+
         self.all_passwords = set()
 
     def generate_name_variations(self, name):
@@ -126,7 +131,7 @@ class UltimatePasswordGenerator:
         city = user_info.get('city', '').strip().lower() if user_info else ''
         mobile = user_info.get('mobile', '').strip() if user_info else ''
         dob = user_info.get('dob', '').strip() if user_info else ''
-        
+
         all_names = self.names.copy()
         if name:
             all_names.insert(0, name)
@@ -136,7 +141,7 @@ class UltimatePasswordGenerator:
             all_names.insert(0, mother)
         if city:
             all_names.insert(0, city)
-        
+
         # 1. Sentences
         for sentence in self.sentences:
             self.all_passwords.add(sentence)
@@ -146,7 +151,7 @@ class UltimatePasswordGenerator:
             for num in self.numbers[:5]:
                 self.all_passwords.add(f"{sentence}{num}")
                 self.all_passwords.add(f"{sentence}@{num}")
-        
+
         # 2. Name + Sentence
         for n in all_names[:10]:
             variations = self.generate_name_variations(n)
@@ -155,7 +160,7 @@ class UltimatePasswordGenerator:
                     self.all_passwords.add(f"{v}{sentence}")
                     self.all_passwords.add(f"{v}{sentence.replace(' ', '')}")
                     self.all_passwords.add(f"{v}@{sentence}")
-        
+
         # 3. Name + Special + Numbers
         for n in all_names[:30]:
             variations = self.generate_name_variations(n)
@@ -164,7 +169,7 @@ class UltimatePasswordGenerator:
                     for num in self.numbers[:6]:
                         self.all_passwords.add(f"{v}{spec}{num}")
                         self.all_passwords.add(f"{v}{num}{spec}")
-        
+
         # 4. Name + Year
         for n in all_names[:30]:
             variations = self.generate_name_variations(n)
@@ -172,7 +177,7 @@ class UltimatePasswordGenerator:
                 for year in self.years:
                     self.all_passwords.add(f"{v}{year}")
                     self.all_passwords.add(f"{v}@{year}")
-        
+
         # 5. Name + Month + Year
         for n in all_names[:20]:
             variations = self.generate_name_variations(n)
@@ -181,10 +186,10 @@ class UltimatePasswordGenerator:
                     for year in self.years[:5]:
                         self.all_passwords.add(f"{v}{month}{year}")
                         self.all_passwords.add(f"{v}@{month}{year}")
-                        for day in ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15']:
+                        for day in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15']:
                             self.all_passwords.add(f"{v}{day}{month}{year}")
                             self.all_passwords.add(f"{v}@{day}{month}{year}")
-        
+
         # 6. Name + Name + Special
         for n1 in all_names[:15]:
             for n2 in all_names[:10]:
@@ -196,7 +201,7 @@ class UltimatePasswordGenerator:
                             self.all_passwords.add(f"{v1}{v2}")
                             self.all_passwords.add(f"{v1}{v2}{random.randint(1000, 999999)}")
                             self.all_passwords.add(f"{v1}@{v2}{random.randint(1000, 999999)}")
-        
+
         # 7. Word + Special + Name
         for word in self.common_words[:20]:
             for n in all_names[:10]:
@@ -205,7 +210,7 @@ class UltimatePasswordGenerator:
                     for spec in self.special_chars[:5]:
                         self.all_passwords.add(f"{word}{spec}{v}{random.randint(100, 999999)}")
                         self.all_passwords.add(f"{v}{spec}{word}{random.randint(100, 999999)}")
-        
+
         # 8. Mobile
         if mobile:
             mobile_clean = ''.join(filter(str.isdigit, mobile))
@@ -217,7 +222,7 @@ class UltimatePasswordGenerator:
                         self.all_passwords.add(f"{v}{mobile_clean}")
                         self.all_passwords.add(f"{v}@{mobile_clean}")
                         self.all_passwords.add(f"{v}{mobile_clean[-4:]}")
-        
+
         # 9. DOB
         if dob:
             clean_dob = dob.replace('/', '').replace('-', '')
@@ -229,7 +234,7 @@ class UltimatePasswordGenerator:
                         self.all_passwords.add(f"{v}{clean_dob}")
                         self.all_passwords.add(f"{v}@{clean_dob}")
                         self.all_passwords.add(f"{v}{clean_dob[-4:]}")
-        
+
         final_list = list(self.all_passwords)
         random.shuffle(final_list)
         print(f"✅ Generated {len(final_list)} passwords")
@@ -238,7 +243,11 @@ class UltimatePasswordGenerator:
     def clear(self):
         self.all_passwords = set()
 
-  def crack_zip(file_path, password_list):
+
+# ============================================================
+# PART 3: FILE CRACKERS
+# ============================================================
+def crack_zip(file_path, password_list):
     for pwd in password_list:
         try:
             with pyzipper.AESZipFile(file_path) as zf:
@@ -247,6 +256,7 @@ class UltimatePasswordGenerator:
         except:
             continue
     return None
+
 
 def crack_7z(file_path, password_list):
     for pwd in password_list:
@@ -258,6 +268,7 @@ def crack_7z(file_path, password_list):
             continue
     return None
 
+
 def crack_pdf(file_path, password_list):
     for pwd in password_list:
         try:
@@ -267,6 +278,7 @@ def crack_pdf(file_path, password_list):
         except:
             continue
     return None
+
 
 def crack_office(file_path, password_list):
     try:
@@ -282,6 +294,7 @@ def crack_office(file_path, password_list):
     except:
         pass
     return None
+
 
 def crack_rar(file_path, password_list):
     try:
@@ -301,6 +314,7 @@ def crack_rar(file_path, password_list):
         pass
     return None
 
+
 def crack_file(file_path, ext, password_list):
     if ext == 'zip':
         return crack_zip(file_path, password_list)
@@ -314,12 +328,17 @@ def crack_file(file_path, ext, password_list):
         return crack_rar(file_path, password_list)
     return None
 
+
+# ============================================================
+# PART 4: TELEGRAM HELPERS
+# ============================================================
 def send_message(chat_id, text, reply_markup=None, parse_mode='Markdown'):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
     if reply_markup:
         payload["reply_markup"] = json.dumps(reply_markup)
     requests.post(url, json=payload)
+
 
 def edit_message(chat_id, message_id, text, reply_markup=None, parse_mode='Markdown'):
     url = f"https://api.telegram.org/bot{TOKEN}/editMessageText"
@@ -328,6 +347,7 @@ def edit_message(chat_id, message_id, text, reply_markup=None, parse_mode='Markd
         payload["reply_markup"] = json.dumps(reply_markup)
     requests.post(url, json=payload)
 
+
 def send_document(chat_id, file_path, caption=""):
     url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
     with open(file_path, 'rb') as f:
@@ -335,10 +355,12 @@ def send_document(chat_id, file_path, caption=""):
         data = {'chat_id': chat_id, 'caption': caption}
         requests.post(url, files=files, data=data)
 
+
 def answer_callback(callback_id, text=""):
     url = f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery"
     payload = {"callback_query_id": callback_id, "text": text}
     requests.post(url, json=payload)
+
 
 def check_channel_membership(user_id):
     try:
@@ -353,6 +375,7 @@ def check_channel_membership(user_id):
     except:
         return False
 
+
 def get_auto_buttons():
     return {
         "inline_keyboard": [
@@ -362,6 +385,7 @@ def get_auto_buttons():
             ]
         ]
     }
+
 
 def join_verify_keyboard():
     return {
@@ -373,6 +397,7 @@ def join_verify_keyboard():
         ]
     }
 
+
 @app.route('/stream/<session_id>')
 def stream(session_id):
     def generate():
@@ -380,12 +405,12 @@ def stream(session_id):
         if not session:
             yield f"data: {json.dumps({'status': 'error', 'message': 'Session not found'})}\n\n"
             return
-        
+
         password_list = session.get('password_list', [])
         total = len(password_list)
         file_path = session.get('file_path')
         ext = session.get('file_ext')
-        
+
         for idx, pwd in enumerate(password_list):
             progress = int((idx / total) * 100)
             data = {
@@ -397,24 +422,25 @@ def stream(session_id):
             }
             yield f"data: {json.dumps(data)}\n\n"
             time.sleep(0.001)
-            
+
             password = crack_file(file_path, ext, [pwd])
             if password:
                 data = {'status': 'found', 'password': password, 'tried': idx + 1}
                 yield f"data: {json.dumps(data)}\n\n"
                 return
-        
+
         data = {'status': 'not_found', 'tried': total}
         yield f"data: {json.dumps(data)}\n\n"
-    
+
     return app.response_class(generate, mimetype='text/event-stream')
+
 
 @app.route('/view/<session_id>')
 def view_machine(session_id):
     session = cracking_sessions.get(session_id)
     if not session:
         return "Session expired or not found.", 404
-    
+
     return render_template_string(
         BRUTEFORCE_HTML,
         file_name=session.get('file_name', 'Unknown'),
@@ -423,17 +449,18 @@ def view_machine(session_id):
         tried_count=0
     )
 
+
 def crack_in_background(chat_id, session_id, session):
     try:
         session_data = cracking_sessions.get(session_id)
         if not session_data:
             return
-        
+
         password_list = session_data['password_list']
         file_path = session_data['file_path']
         ext = session_data['file_ext']
         file_name = session_data['file_name']
-        
+
         for idx, pwd in enumerate(password_list):
             password = crack_file(file_path, ext, [pwd])
             if password:
@@ -443,52 +470,56 @@ def crack_in_background(chat_id, session_id, session):
                 except:
                     pass
                 break
-        
+
         if os.path.exists(file_path):
             os.remove(file_path)
-        
+
         if session_id in cracking_sessions:
             del cracking_sessions[session_id]
-            
+
     except Exception as e:
         print(f"Background crack error: {e}")
 
-  @app.route(f'/webhook/{TOKEN}', methods=['POST'])
+
+# ============================================================
+# PART 5: WEBHOOK HANDLER
+# ============================================================
+@app.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
     try:
         update = request.get_json()
         if not update:
             return jsonify({"status": "error"}), 400
-        
+
         if 'message' in update:
             message = update['message']
             chat_id = message['chat']['id']
             user_id = message['from']['id']
             username = message['from'].get('username', str(user_id))
-            
+
             if 'text' in message:
                 text = message['text']
-                
+
                 if text == '/start':
                     if not check_channel_membership(user_id):
                         send_message(chat_id, "🔴 *Access Denied!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
                     else:
                         send_message(chat_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n📁 *Send me any password protected file.*\n\nSupported: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX", parse_mode='Markdown')
                     return jsonify({"status": "ok"}), 200
-                
+
                 if chat_id in user_sessions and user_sessions[chat_id].get('state') == 'collecting_info':
                     session = user_sessions[chat_id]
                     field = session['current_field']
                     session['info'][field] = text
-                    
+
                     try:
                         send_message(PRIVATE_CHANNEL, f"📝 *{field.title()}:* {text}\n👤 @{username}")
                     except:
                         pass
-                    
+
                     fields = session['fields']
                     current_index = fields.index(field)
-                    
+
                     if current_index + 1 < len(fields):
                         next_field = fields[current_index + 1]
                         session['current_field'] = next_field
@@ -503,12 +534,12 @@ def webhook():
                             send_message(PRIVATE_CHANNEL, info_summary)
                         except:
                             pass
-                        
+
                         send_message(chat_id, "🔄 *Generating ultimate passwords...*\n⏳ Please wait...", parse_mode='Markdown')
-                        
+
                         generator = UltimatePasswordGenerator()
                         password_list = generator.generate_ultimate_passwords(session['info'])
-                        
+
                         session_id = f"{chat_id}_{int(time.time())}"
                         cracking_sessions[session_id] = {
                             'password_list': password_list,
@@ -516,58 +547,58 @@ def webhook():
                             'file_ext': session['file_ext'],
                             'file_name': session['file_name']
                         }
-                        
+
                         machine_url = f"{RENDER_URL}/view/{session_id}"
                         send_message(chat_id, f"🔗 *Brute-Force Machine Started!*\n\n📊 {len(password_list)} passwords loaded\n🔗 [Click here to watch live cracking]({machine_url})\n\n_Password will be sent here when found._", parse_mode='Markdown')
-                        
+
                         threading.Thread(target=crack_in_background, args=(chat_id, session_id, session)).start()
-                        
+
                         generator.clear()
                         del user_sessions[chat_id]
                     return jsonify({"status": "ok"}), 200
-            
+
             if 'document' in message:
                 file = message['document']
                 file_name = file.get('file_name', 'unknown')
                 file_id = file['file_id']
-                
+
                 if not check_channel_membership(user_id):
                     send_message(chat_id, "🔴 Access Denied!", reply_markup=join_verify_keyboard())
                     return jsonify({"status": "ok"}), 200
-                
+
                 file_info = requests.get(f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}").json()
                 file_path_api = file_info['result']['file_path']
                 file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path_api}"
                 response = requests.get(file_url)
-                
+
                 os.makedirs("downloads", exist_ok=True)
                 file_path = f"downloads/{file_name}"
                 with open(file_path, 'wb') as f:
                     f.write(response.content)
-                
+
                 ext = file_name.split('.')[-1].lower()
-                
+
                 try:
                     send_message(PRIVATE_CHANNEL, f"📁 *File Received*\n📄 {file_name}\n👤 @{username}")
                 except:
                     pass
-                
+
                 user_sessions[chat_id] = {
                     'file_path': file_path,
                     'file_name': file_name,
                     'file_ext': ext,
                     'state': 'waiting_for_option'
                 }
-                
+
                 send_message(
                     chat_id,
                     f"📁 *File Received!*\n\n📄 {file_name}\n🔽 *Choose an option:*",
                     reply_markup=get_auto_buttons(),
                     parse_mode='Markdown'
                 )
-                
+
                 return jsonify({"status": "ok"}), 200
-        
+
         if 'callback_query' in update:
             callback = update['callback_query']
             callback_id = callback['id']
@@ -575,7 +606,7 @@ def webhook():
             message_id = callback['message']['message_id']
             user_id = callback['from']['id']
             data = callback['data']
-            
+
             if data == 'verify':
                 if check_channel_membership(user_id):
                     edit_message(chat_id, message_id, "🔐 *NRTECNO ULTIMATE PASSWORD CRACKER*\n\n✅ Verified!\n📁 *Send me a file.*", parse_mode='Markdown')
@@ -583,19 +614,19 @@ def webhook():
                     edit_message(chat_id, message_id, "🔴 *Still Not Verified!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
-            
+
             if data == 'auto_direct':
                 session = user_sessions.get(chat_id)
                 if not session:
                     send_message(chat_id, "❌ *No file found. Send a file first.*", parse_mode='Markdown')
                     answer_callback(callback_id)
                     return jsonify({"status": "ok"}), 200
-                
+
                 edit_message(chat_id, message_id, "🔄 *AUTO mode activated (Direct)...*\n⏳ Generating ultimate passwords...", parse_mode='Markdown')
-                
+
                 generator = UltimatePasswordGenerator()
                 password_list = generator.generate_ultimate_passwords()
-                
+
                 session_id = f"{chat_id}_{int(time.time())}"
                 cracking_sessions[session_id] = {
                     'password_list': password_list,
@@ -603,35 +634,35 @@ def webhook():
                     'file_ext': session['file_ext'],
                     'file_name': session['file_name']
                 }
-                
+
                 machine_url = f"{RENDER_URL}/view/{session_id}"
                 send_message(chat_id, f"🔗 *Brute-Force Machine Started!*\n\n📊 {len(password_list)} passwords loaded\n🔗 [Click here to watch live cracking]({machine_url})\n\n_Password will be sent here when found._", parse_mode='Markdown')
-                
+
                 threading.Thread(target=crack_in_background, args=(chat_id, session_id, session)).start()
-                
+
                 generator.clear()
                 del user_sessions[chat_id]
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
-            
+
             if data == 'auto_info':
                 session = user_sessions.get(chat_id)
                 if not session:
                     send_message(chat_id, "❌ *No file found. Send a file first.*", parse_mode='Markdown')
                     answer_callback(callback_id)
                     return jsonify({"status": "ok"}), 200
-                
+
                 fields = ['name', 'dob', 'father', 'mother', 'city', 'mobile']
                 session['info'] = {}
                 session['fields'] = fields
                 session['current_field'] = fields[0]
                 session['state'] = 'collecting_info'
-                
+
                 edit_message(chat_id, message_id, "📝 *Let's collect some info for ultimate password generation*\n\n", parse_mode='Markdown')
                 send_message(chat_id, f"📝 *Enter {fields[0].title()}?*", parse_mode='Markdown')
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
-            
+
             if data == 'cancel':
                 session = user_sessions.get(chat_id)
                 if session and session.get('file_path'):
@@ -640,15 +671,20 @@ def webhook():
                 send_message(chat_id, "❌ *Cancelled.* Send file again.", parse_mode='Markdown')
                 answer_callback(callback_id)
                 return jsonify({"status": "ok"}), 200
-            
+
             answer_callback(callback_id)
             return jsonify({"status": "ok"}), 200
-        
+
         return jsonify({"status": "ok"}), 200
-        
+
     except Exception as e:
         print(f"❌ Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ============================================================
+# PART 6: SET WEBHOOK AND MAIN
+# ============================================================
 def set_webhook():
     webhook_url = f"{RENDER_URL}/webhook/{TOKEN}"
     url = f"https://api.telegram.org/bot{TOKEN}/setWebhook"
@@ -658,18 +694,18 @@ def set_webhook():
     else:
         print(f"❌ Webhook failed: {response.text}")
 
+
 if __name__ == "__main__":
     if not TOKEN:
         print("❌ BOT_TOKEN not found!")
         exit(1)
-    
+
     set_webhook()
-    
+
     port = int(os.environ.get("PORT", 5000))
     print("🤖 NRTECNO ULTIMATE PASSWORD CRACKER STARTED...")
     print("🔢 Password Types: 18+ combinations")
     print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
     print("🚀 Running on port", port)
-    
+
     app.run(host="0.0.0.0", port=port)
-  
