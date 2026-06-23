@@ -531,7 +531,7 @@ def crack_in_background(chat_id, file_path, file_name, ext, user_info=None):
         active_cracking[chat_id]['thread'] = threading.current_thread()
         active_cracking[chat_id]['stop_flag'] = False
         
-        send_message(chat_id, f"⚡ *Smart Brute-Force Started*\n\n📊 Priority: Unique → Names → Words → Random\n⏳ Will keep generating until found!\n\n_Type /stop to cancel_", parse_mode='Markdown')
+        send_message(chat_id, f"⚡ *Smart Brute-Force Started*\n\n📊 Priority: Unique → Names → Words → Random\n⏳ Will keep generating until found!\n\n_Type /stop to cancel & /start to new file password_", parse_mode='Markdown')
         
         while not active_cracking[chat_id].get('stop_flag', False):
             password_list = generator.get_next_passwords(user_info, batch_size)
