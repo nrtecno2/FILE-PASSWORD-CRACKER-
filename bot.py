@@ -608,7 +608,7 @@ def crack_in_background_infinite(chat_id, file_path, file_name, ext, user_info=N
             total_tried += len(password_list)
             
             if total_tried % 1000 == 0:
-                send_message(chat_id, f"🔄 *Tried {total_tried} passwords...*\n⏳ Still searching...\n_Press /stop to cancel_", parse_mode='Markdown')
+                send_message(chat_id, f"🔄 *Tried {total_tried} passwords...*\n⏳ Still searching...\n_Press /stop to cancel & /start to new file bruetforce_", parse_mode='Markdown')
             
             password = crack_file_fast(file_path, ext, password_list)
             
