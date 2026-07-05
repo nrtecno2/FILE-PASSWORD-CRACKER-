@@ -14,7 +14,7 @@ from itertools import permutations
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
-PRIVATE_CHANNEL = -1001234567890
+PRIVATE_CHANNEL = -1004479815753
 CHANNEL_USERNAME = "@nrtecno2"
 
 app = Flask(__name__)
@@ -822,3 +822,34 @@ def webhook():
 
 # ============================================================
 # SET WEBHOOK AND MAIN
+# ============================================================
+def set_webhook():
+    webhook_url = f"{RENDER_URL}/webhook/{TOKEN}"
+    url = f"https://api.telegram.org/bot{TOKEN}/setWebhook"
+    try:
+        response = session.post(url, json={"url": webhook_url}, timeout=30)
+        if response.status_code == 200:
+            print(f"✅ Webhook set to: {webhook_url}")
+        else:
+            print(f"❌ Webhook failed: {response.text}")
+    except Exception as e:
+        print(f"❌ Webhook error: {e}")
+
+
+if __name__ == "__main__":
+    if not TOKEN:
+        print("❌ BOT_TOKEN not found!")
+        exit(1)
+
+    set_webhook()
+
+    port = int(os.environ.get("PORT", 5000))
+    print("🤖 NRTECNO SMART PASSWORD CRACKER STARTED...")
+    print("🔥 PRIORITY: Info (Exact) → Info Combinations → Names → Words → Random")
+    print("🔢 FOCUS: @ and # symbols")
+    print("🚀 SPEED: 1500 passwords/sec")
+    print("👥 FAKE MONTHLY USERS: 10,000+")
+    print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
+    print("🚀 Running on port", port)
+
+    app.run(host="0.0.0.0", port=port)
