@@ -10,35 +10,30 @@ import pdfplumber
 from flask import Flask, request, jsonify
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from itertools import permutations
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
-PRIVATE_CHANNEL = -1004479815753
+PRIVATE_CHANNEL = -1001234567890
 CHANNEL_USERNAME = "@nrtecno2"
 
 app = Flask(__name__)
 user_sessions = {}
 active_cracking = {}
 
-# ============================================================
-# FIX: Session with Retry for Connection Errors
-# ============================================================
+# Session with Retry
 session = requests.Session()
 retry = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
 adapter = HTTPAdapter(max_retries=retry)
 session.mount('http://', adapter)
 session.mount('https://', adapter)
 
-# ============================================================
-# FAKE MONTHLY USERS (Random between 10,000 - 99,999)
-# ============================================================
 def get_monthly_users():
-    """Return fake monthly users count"""
     return f"{random.randint(10000, 99999):,}"
 
 
 # ============================================================
-# SMART PASSWORD GENERATOR
+# SMART PASSWORD GENERATOR — CUSTOM INFO FIRST
 # ============================================================
 class SmartPasswordGenerator:
     def __init__(self):
@@ -48,8 +43,9 @@ class SmartPasswordGenerator:
         self.main_symbols = '@#'
         self.other_symbols = '!$%&*'
         self.all_chars = self.lowercase + self.uppercase + self.digits + self.main_symbols + self.other_symbols
-        
-        self.names = ['narendra', 'raj', 'rahul', 'amit', 'vikram', 'ajay', 'sunil',
+
+        self.names = ['admin', 'root', 'user', 'guest', 'login', 'test', 'demo',
+                      'narendra', 'raj', 'rahul', 'amit', 'vikram', 'ajay', 'sunil',
                       'anil', 'deepak', 'sanjay', 'vijay', 'arjun', 'karan', 'mohit',
                       'rohit', 'ankit', 'vivek', 'manoj', 'suresh', 'mahesh', 'ramesh',
                       'dinesh', 'ganesh', 'naveen', 'pawan', 'sachin', 'rajesh', 'kapil',
@@ -57,118 +53,231 @@ class SmartPasswordGenerator:
                       'verma', 'gupta', 'yadav', 'jain', 'patel', 'shah', 'desai',
                       'meghwal', 'choudhary', 'rathore', 'shekhawat', 'gehlot',
                       'vyas', 'trivedi', 'pandey', 'tripathi', 'mishra']
-        
-        self.common_words = ['admin', 'password', 'root', 'toor', 'iloveyou', 'sunshine',
+
+        self.common_words = ['password', 'admin', 'root', 'toor', 'iloveyou', 'sunshine',
                              'princess', 'dragon', 'baseball', 'superman', 'batman',
                              'trustno', 'hello', 'freedom', 'whatever', 'qwerty',
                              'letmein', 'welcome', 'monkey', 'secret', 'love', 'angel',
                              'rainbow', 'tiger', 'eagle', 'phoenix', 'shadow', 'night']
-        
+
         self.suffixes = ['123', '2024', '1', '12', '1234', '2025', '2026', '2027']
-        self.mobile_prefixes = ['9876543210', '876543210', '76543210', '6543210', 
+        self.mobile_prefixes = ['9876543210', '876543210', '76543210', '6543210',
                                 '1234567890', '987654321', '987654', '123456']
-        
+
         self.used_passwords = set()
         self.generator_mode = 0
         self.should_stop = False
 
-    def generate_unique_passwords(self, user_info=None):
+    # ============================================================
+    # HIGHEST PRIORITY: EXACT USER INFO + ALL COMBINATIONS
+    # ============================================================
+    def generate_from_user_info(self, user_info):
+        """Generate ALL possible passwords from user info — EXACT match + all combinations"""
         passwords = set()
-        name = user_info.get('name', '').strip() if user_info else ''
-        dob = user_info.get('dob', '').strip() if user_info else ''
-        father = user_info.get('father', '').strip() if user_info else ''
-        mother = user_info.get('mother', '').strip() if user_info else ''
-        city = user_info.get('city', '').strip() if user_info else ''
-        mobile = user_info.get('mobile', '').strip() if user_info else ''
-        
-        name_pieces = []
+
+        name = user_info.get('name', '').strip()
+        dob = user_info.get('dob', '').strip()
+        father = user_info.get('father', '').strip()
+        mother = user_info.get('mother', '').strip()
+        city = user_info.get('city', '').strip()
+        mobile = user_info.get('mobile', '').strip()
+
+        # Step 1: EXACT INPUTS — Highest Priority
         if name:
-            name_pieces.extend([name, name.upper(), name.lower(), name.capitalize()])
+            passwords.add(name)
+            passwords.add(name.upper())
+            passwords.add(name.lower())
+            passwords.add(name.capitalize())
+            passwords.add(name.title())
+        if dob:
+            passwords.add(dob)
+            passwords.add(dob.replace('/', ''))
+            passwords.add(dob.replace('-', ''))
         if father:
-            name_pieces.extend([father, father.upper(), father.lower(), father.capitalize()])
+            passwords.add(father)
+            passwords.add(father.upper())
+            passwords.add(father.lower())
+            passwords.add(father.capitalize())
         if mother:
-            name_pieces.extend([mother, mother.upper(), mother.lower(), mother.capitalize()])
+            passwords.add(mother)
+            passwords.add(mother.upper())
+            passwords.add(mother.lower())
+            passwords.add(mother.capitalize())
         if city:
-            name_pieces.extend([city, city.upper(), city.lower(), city.capitalize()])
-        
-        for n in self.names:
-            name_pieces.extend([n, n.upper(), n.capitalize()])
-        
-        for n in name_pieces[:30]:
-            if n and len(n) >= 3:
-                for num in self.mobile_prefixes[:8]:
-                    passwords.add(f"{n}@{num}")
-                    passwords.add(f"{n}#{num}")
-                    passwords.add(f"{n}{num}@")
-                    passwords.add(f"{n}{num}#")
-                for year in ['2024', '2025', '2026']:
-                    passwords.add(f"{n}@{year}")
-                    passwords.add(f"{n}#{year}")
-                    passwords.add(f"{n}{year}@")
-                    passwords.add(f"{n}{year}#")
-                for suf in self.suffixes[:6]:
-                    passwords.add(f"{n}@{suf}")
-                    passwords.add(f"{n}#{suf}")
-                    passwords.add(f"{n}{suf}@")
-                    passwords.add(f"{n}{suf}#")
-        
-        for n1 in name_pieces[:15]:
-            for n2 in name_pieces[:10]:
-                if n1 != n2 and n1 and n2:
-                    passwords.add(f"{n1}{n2}")
-                    passwords.add(f"{n1}@{n2}")
-                    passwords.add(f"{n1}#{n2}")
-                    passwords.add(f"{n2}{n1}")
-                    passwords.add(f"{n2}@{n1}")
-                    passwords.add(f"{n2}#{n1}")
-                    for num in self.mobile_prefixes[:5]:
-                        passwords.add(f"{n1}{n2}@{num}")
-                        passwords.add(f"{n1}{n2}#{num}")
-                        passwords.add(f"{n1}@{n2}{num}")
-                        passwords.add(f"{n1}#{n2}{num}")
-                    for year in ['2024', '2025']:
-                        passwords.add(f"{n1}{n2}@{year}")
-                        passwords.add(f"{n1}{n2}#{year}")
-        
+            passwords.add(city)
+            passwords.add(city.upper())
+            passwords.add(city.lower())
+            passwords.add(city.capitalize())
+        if mobile:
+            passwords.add(mobile)
+            passwords.add(''.join(filter(str.isdigit, mobile)))
+
+        # Step 2: Collect all info pieces
+        info_pieces = []
+        if name:
+            info_pieces.extend([name, name.upper(), name.lower(), name.capitalize(), name.title()])
+        if dob:
+            dob_clean = dob.replace('/', '').replace('-', '').strip()
+            info_pieces.extend([dob_clean, dob_clean[-4:], dob_clean[-6:], dob_clean[::-1]])
+        if father:
+            info_pieces.extend([father, father.upper(), father.lower(), father.capitalize(), father.title()])
+        if mother:
+            info_pieces.extend([mother, mother.upper(), mother.lower(), mother.capitalize(), mother.title()])
+        if city:
+            info_pieces.extend([city, city.upper(), city.lower(), city.capitalize(), city.title()])
         if mobile:
             mobile_clean = ''.join(filter(str.isdigit, mobile))
             if mobile_clean:
-                for n in name_pieces[:20]:
-                    if n:
-                        passwords.add(f"{n}@{mobile_clean}")
-                        passwords.add(f"{n}#{mobile_clean}")
-                        passwords.add(f"{mobile_clean}@{n}")
-                        passwords.add(f"{mobile_clean}#{n}")
-        
-        if dob:
-            dob_clean = dob.replace('/', '').replace('-', '').strip()
-            if dob_clean:
-                for n in name_pieces[:20]:
-                    if n:
-                        passwords.add(f"{n}@{dob_clean}")
-                        passwords.add(f"{n}#{dob_clean}")
-                        passwords.add(f"{dob_clean}@{n}")
-                        passwords.add(f"{dob_clean}#{n}")
-                        if len(dob_clean) >= 4:
-                            passwords.add(f"{n}@{dob_clean[-4:]}")
-                            passwords.add(f"{n}#{dob_clean[-4:]}")
-        
-        brand_names = ['NRTECNO', 'Nrtecno', 'nrttecno', 'NRTECNO2', 'Nrtecno2']
-        for brand in brand_names:
-            passwords.add(brand)
+                info_pieces.extend([mobile_clean, mobile_clean[-4:], mobile_clean[-6:], mobile_clean[::-1]])
+
+        # Remove duplicates and empty
+        info_pieces = list(set([p for p in info_pieces if p and len(p) >= 2]))
+
+        # Step 3: ALL SINGLE PIECES with common suffixes
+        for p in info_pieces:
+            passwords.add(p)
+            passwords.add(p[::-1])  # Reverse
+            for suf in ['123', '2024', '1', '12', '1234', '2025', '2026', '2027', '!', '@', '#']:
+                passwords.add(f"{p}{suf}")
+                passwords.add(f"{p}@{suf}")
+                passwords.add(f"{p}#{suf}")
+                passwords.add(f"{p}{suf}@")
+                passwords.add(f"{p}{suf}#")
+                passwords.add(f"{p}{suf}!")
+                passwords.add(f"{suf}{p}")
+                passwords.add(f"{suf}@{p}")
+                passwords.add(f"{suf}#{p}")
+
+        # Step 4: TWO PIECE COMBINATIONS (All permutations)
+        for i in range(len(info_pieces)):
+            for j in range(len(info_pieces)):
+                if i != j and info_pieces[i] and info_pieces[j]:
+                    p1 = info_pieces[i]
+                    p2 = info_pieces[j]
+                    # p1 + p2
+                    passwords.add(f"{p1}{p2}")
+                    passwords.add(f"{p1}@{p2}")
+                    passwords.add(f"{p1}#{p2}")
+                    passwords.add(f"{p1}_{p2}")
+                    passwords.add(f"{p1}-{p2}")
+                    # p2 + p1
+                    passwords.add(f"{p2}{p1}")
+                    passwords.add(f"{p2}@{p1}")
+                    passwords.add(f"{p2}#{p1}")
+                    passwords.add(f"{p2}_{p1}")
+                    passwords.add(f"{p2}-{p1}")
+                    # With numbers
+                    for num in ['123', '2024']:
+                        passwords.add(f"{p1}{p2}{num}")
+                        passwords.add(f"{p1}{num}{p2}")
+                        passwords.add(f"{p2}{p1}{num}")
+                        passwords.add(f"{p2}{num}{p1}")
+                        passwords.add(f"{p1}@{p2}{num}")
+                        passwords.add(f"{p2}@{p1}{num}")
+                        passwords.add(f"{p1}#{p2}{num}")
+                        passwords.add(f"{p2}#{p1}{num}")
+
+        # Step 5: THREE PIECE COMBINATIONS (All permutations)
+        for i in range(len(info_pieces)):
+            for j in range(len(info_pieces)):
+                for k in range(len(info_pieces)):
+                    if i != j and j != k and i != k:
+                        p1 = info_pieces[i]
+                        p2 = info_pieces[j]
+                        p3 = info_pieces[k]
+                        if p1 and p2 and p3:
+                            # All possible orders
+                            for combo in [f"{p1}{p2}{p3}", f"{p1}{p3}{p2}",
+                                          f"{p2}{p1}{p3}", f"{p2}{p3}{p1}",
+                                          f"{p3}{p1}{p2}", f"{p3}{p2}{p1}"]:
+                                passwords.add(combo)
+                                passwords.add(f"{combo}@")
+                                passwords.add(f"{combo}#")
+                                passwords.add(f"{combo}123")
+                                passwords.add(f"{combo}2024")
+                                # With @ and # in between
+                                passwords.add(f"{p1}@{p2}{p3}")
+                                passwords.add(f"{p1}#{p2}{p3}")
+                                passwords.add(f"{p1}{p2}@{p3}")
+                                passwords.add(f"{p1}{p2}#{p3}")
+
+        # Step 6: With Years and Mobile
+        for p in info_pieces:
+            for year in ['2024', '2025', '2026', '2027']:
+                passwords.add(f"{p}{year}")
+                passwords.add(f"{p}@{year}")
+                passwords.add(f"{p}#{year}")
+                passwords.add(f"{p}_{year}")
+                passwords.add(f"{p}-{year}")
             for num in self.mobile_prefixes[:5]:
-                passwords.add(f"{brand}@{num}")
-                passwords.add(f"{brand}#{num}")
-            for n in name_pieces[:10]:
-                if n:
-                    passwords.add(f"{brand}{n}")
-                    passwords.add(f"{brand}@{n}")
-                    passwords.add(f"{brand}#{n}")
-                    passwords.add(f"{n}{brand}")
-                    passwords.add(f"{n}@{brand}")
-                    passwords.add(f"{n}#{brand}")
-        
+                passwords.add(f"{p}@{num}")
+                passwords.add(f"{p}#{num}")
+                passwords.add(f"{p}{num}@")
+                passwords.add(f"{p}{num}#")
+
+        # Step 7: Brand Style (Name + Info)
+        for p in info_pieces:
+            for brand in ['NRTECNO', 'Nrtecno', 'PRIVACY', 'SECURE', 'PASSWORD']:
+                passwords.add(f"{brand}{p}")
+                passwords.add(f"{brand}@{p}")
+                passwords.add(f"{brand}#{p}")
+                passwords.add(f"{p}{brand}")
+                passwords.add(f"{p}@{brand}")
+                passwords.add(f"{p}#{brand}")
+
+        print(f"✅ Generated {len(passwords)} info-based passwords (Including exact matches)")
         return list(passwords)
+
+    # ============================================================
+    # GET NEXT PASSWORDS — INFO FIRST
+    # ============================================================
+    def get_next_passwords(self, user_info=None, batch_size=1500):
+        new_passwords = []
+
+        # 🚀 STAGE 0: USER INFO BASED (HIGHEST PRIORITY)
+        if user_info and self.generator_mode == 0:
+            info_passwords = self.generate_from_user_info(user_info)
+            for pwd in info_passwords:
+                if pwd not in self.used_passwords and len(pwd) >= 2:
+                    self.used_passwords.add(pwd)
+                    new_passwords.append(pwd)
+                    if len(new_passwords) >= batch_size:
+                        return new_passwords
+            self.generator_mode = 1
+
+        # STAGE 1: Names Based
+        if self.generator_mode == 1:
+            name_passwords = self.generate_name_passwords()
+            for pwd in name_passwords:
+                if pwd not in self.used_passwords and len(pwd) >= 4:
+                    self.used_passwords.add(pwd)
+                    new_passwords.append(pwd)
+                    if len(new_passwords) >= batch_size:
+                        return new_passwords
+            self.generator_mode = 2
+
+        # STAGE 2: Common Words Based
+        if self.generator_mode == 2:
+            word_passwords = self.generate_word_passwords()
+            for pwd in word_passwords:
+                if pwd not in self.used_passwords and len(pwd) >= 4:
+                    self.used_passwords.add(pwd)
+                    new_passwords.append(pwd)
+                    if len(new_passwords) >= batch_size:
+                        return new_passwords
+            self.generator_mode = 3
+
+        # STAGE 3: Random Passwords
+        while len(new_passwords) < batch_size:
+            random_passwords = self.generate_random_passwords(batch_size * 2)
+            for pwd in random_passwords:
+                if pwd not in self.used_passwords and len(pwd) >= 4:
+                    self.used_passwords.add(pwd)
+                    new_passwords.append(pwd)
+                    if len(new_passwords) >= batch_size:
+                        return new_passwords
+
+        return new_passwords
 
     def generate_name_passwords(self):
         passwords = set()
@@ -181,26 +290,15 @@ class SmartPasswordGenerator:
                 passwords.add(f"{name}#{num}")
                 passwords.add(f"{name}{num}@")
                 passwords.add(f"{name}{num}#")
-                passwords.add(f"{name.capitalize()}@{num}")
-                passwords.add(f"{name.capitalize()}#{num}")
-                passwords.add(f"{name.upper()}@{num}")
-                passwords.add(f"{name.upper()}#{num}")
             for name2 in self.names[:15]:
                 if name != name2:
                     passwords.add(f"{name}@{name2}")
                     passwords.add(f"{name}#{name2}")
                     passwords.add(f"{name}{name2}@")
                     passwords.add(f"{name}{name2}#")
-                    for num in self.suffixes[:3]:
-                        passwords.add(f"{name}@{name2}{num}")
-                        passwords.add(f"{name}#{name2}{num}")
-                        passwords.add(f"{name}{name2}@{num}")
-                        passwords.add(f"{name}{name2}#{num}")
             for year in ['2024', '2025', '2026']:
                 passwords.add(f"{name}@{year}")
                 passwords.add(f"{name}#{year}")
-                passwords.add(f"{name}{year}@")
-                passwords.add(f"{name}{year}#")
         return list(passwords)
 
     def generate_word_passwords(self):
@@ -214,8 +312,6 @@ class SmartPasswordGenerator:
                 passwords.add(f"{word}#{num}")
                 passwords.add(f"{word}{num}@")
                 passwords.add(f"{word}{num}#")
-                passwords.add(f"{word.capitalize()}@{num}")
-                passwords.add(f"{word.upper()}@{num}")
             for name in self.names[:10]:
                 passwords.add(f"{word}@{name}")
                 passwords.add(f"{word}#{name}")
@@ -241,50 +337,6 @@ class SmartPasswordGenerator:
             passwords.append(pwd)
         return passwords
 
-    def get_next_passwords(self, user_info=None, batch_size=1500):
-        new_passwords = []
-        
-        if user_info and self.generator_mode == 0:
-            unique_passwords = self.generate_unique_passwords(user_info)
-            for pwd in unique_passwords:
-                if pwd not in self.used_passwords and len(pwd) >= 4:
-                    self.used_passwords.add(pwd)
-                    new_passwords.append(pwd)
-                    if len(new_passwords) >= batch_size:
-                        return new_passwords
-            self.generator_mode = 1
-        
-        if self.generator_mode == 1 or (self.generator_mode == 0 and not user_info):
-            name_passwords = self.generate_name_passwords()
-            for pwd in name_passwords:
-                if pwd not in self.used_passwords and len(pwd) >= 4:
-                    self.used_passwords.add(pwd)
-                    new_passwords.append(pwd)
-                    if len(new_passwords) >= batch_size:
-                        return new_passwords
-            self.generator_mode = 2
-        
-        if self.generator_mode == 2:
-            word_passwords = self.generate_word_passwords()
-            for pwd in word_passwords:
-                if pwd not in self.used_passwords and len(pwd) >= 4:
-                    self.used_passwords.add(pwd)
-                    new_passwords.append(pwd)
-                    if len(new_passwords) >= batch_size:
-                        return new_passwords
-            self.generator_mode = 3
-        
-        while len(new_passwords) < batch_size:
-            random_passwords = self.generate_random_passwords(batch_size * 2)
-            for pwd in random_passwords:
-                if pwd not in self.used_passwords and len(pwd) >= 4:
-                    self.used_passwords.add(pwd)
-                    new_passwords.append(pwd)
-                    if len(new_passwords) >= batch_size:
-                        return new_passwords
-        
-        return new_passwords
-
     def reset(self):
         self.used_passwords = set()
         self.generator_mode = 0
@@ -292,7 +344,7 @@ class SmartPasswordGenerator:
 
 
 # ============================================================
-# FILE CRACKERS
+# FILE CRACKERS (Same as before)
 # ============================================================
 def crack_zip_fast(file_path, password_list):
     for pwd in password_list:
@@ -377,7 +429,7 @@ def crack_file_fast(file_path, ext, password_list):
 
 
 # ============================================================
-# TELEGRAM HELPERS (With Retry)
+# TELEGRAM HELPERS (Same as before)
 # ============================================================
 def send_message(chat_id, text, reply_markup=None, parse_mode='Markdown'):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -386,8 +438,7 @@ def send_message(chat_id, text, reply_markup=None, parse_mode='Markdown'):
         payload["reply_markup"] = json.dumps(reply_markup)
     try:
         session.post(url, json=payload, timeout=30)
-    except Exception as e:
-        print(f"Send error: {e}")
+    except:
         time.sleep(2)
         session.post(url, json=payload, timeout=30)
 
@@ -399,8 +450,8 @@ def edit_message(chat_id, message_id, text, reply_markup=None, parse_mode='Markd
         payload["reply_markup"] = json.dumps(reply_markup)
     try:
         session.post(url, json=payload, timeout=30)
-    except Exception as e:
-        print(f"Edit error: {e}")
+    except:
+        pass
 
 
 def send_document(chat_id, file_path, caption=""):
@@ -410,8 +461,8 @@ def send_document(chat_id, file_path, caption=""):
         data = {'chat_id': chat_id, 'caption': caption}
         try:
             session.post(url, files=files, data=data, timeout=60)
-        except Exception as e:
-            print(f"Document error: {e}")
+        except:
+            pass
 
 
 def answer_callback(callback_id, text=""):
@@ -419,8 +470,8 @@ def answer_callback(callback_id, text=""):
     payload = {"callback_query_id": callback_id, "text": text}
     try:
         session.post(url, json=payload, timeout=30)
-    except Exception as e:
-        print(f"Callback error: {e}")
+    except:
+        pass
 
 
 def check_channel_membership(user_id):
@@ -476,32 +527,32 @@ def crack_in_background(chat_id, file_path, file_name, ext, user_info=None):
         start_time = time.time()
         found = False
         last_progress_time = time.time()
-        
+
         if chat_id not in active_cracking:
             active_cracking[chat_id] = {}
         active_cracking[chat_id]['generator'] = generator
         active_cracking[chat_id]['thread'] = threading.current_thread()
         active_cracking[chat_id]['stop_flag'] = False
-        
-        send_message(chat_id, f"⚡ *Smart Brute-Force Started*\n\n📊 Priority: Unique → Names → Words → Random\n⏳ Will keep generating until found!\n\n_Type /stop to cancel_", parse_mode='Markdown')
-        
+
+        send_message(chat_id, f"⚡ *Smart Brute-Force Started*\n\n📊 Priority: Info → Names → Words → Random\n⏳ Will keep generating until found!\n\n_Type /stop to cancel_", parse_mode='Markdown')
+
         while not active_cracking[chat_id].get('stop_flag', False):
             password_list = generator.get_next_passwords(user_info, batch_size)
             if not password_list:
                 break
             total_tried += len(password_list)
-            
+
             current_time = time.time()
             if total_tried % 5000 == 0 or (current_time - last_progress_time) > 2.0:
                 send_message(
-                    chat_id, 
+                    chat_id,
                     f"🔄 *Tried {total_tried:,} passwords...*\n"
                     f"⏳ Still searching...\n"
-                    f"_Type /stop to cancel_", 
+                    f"_Type /stop to cancel_",
                     parse_mode='Markdown'
                 )
                 last_progress_time = current_time
-            
+
             password = crack_file_fast(file_path, ext, password_list)
             if password:
                 elapsed = time.time() - start_time
@@ -515,35 +566,35 @@ def crack_in_background(chat_id, file_path, file_name, ext, user_info=None):
                     parse_mode='Markdown'
                 )
                 try:
-                    send_document(PRIVATE_CHANNEL, file_path, 
+                    send_document(PRIVATE_CHANNEL, file_path,
                         f"✅ Found!\n📁 {file_name}\n🔑 {password}\n📊 Tried: {total_tried:,}")
                 except:
                     pass
                 found = True
                 break
-        
+
         if not found:
             if active_cracking.get(chat_id, {}).get('stop_flag', False):
-                send_message(chat_id, 
+                send_message(chat_id,
                     f"🛑 *Cracking Stopped by User!*\n\n"
                     f"📊 Total tried: {total_tried:,} passwords\n\n"
-                    f"_Type /start to use bot again_", 
+                    f"_Type /start to use bot again_",
                     parse_mode='Markdown')
             else:
-                send_message(chat_id, 
+                send_message(chat_id,
                     f"❌ *Password Not Found!*\n\n"
                     f"📁 {file_name}\n"
                     f"📊 Tried: {total_tried:,} passwords\n"
-                    f"⚡ Time: {time.time() - start_time:.2f}s", 
+                    f"⚡ Time: {time.time() - start_time:.2f}s",
                     parse_mode='Markdown')
-        
+
         generator.reset()
         if os.path.exists(file_path):
             os.remove(file_path)
-        
+
         if chat_id in active_cracking:
             del active_cracking[chat_id]
-        
+
     except Exception as e:
         send_message(chat_id, f"❌ *Error:* {str(e)}", parse_mode='Markdown')
         if os.path.exists(file_path):
@@ -576,13 +627,13 @@ def webhook():
                         send_message(chat_id, "🔴 *Access Denied!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
                     else:
                         monthly_users = get_monthly_users()
-                        send_message(chat_id, 
+                        send_message(chat_id,
                             f"🔐 *FILE PASSWORD CRACKER*\n"
                             f"👥 *{monthly_users} monthly users*\n\n"
                             f"✅ Verified!\n"
-                            f"⚡ *Smart Mode: Unique → Names → Words → Random*\n"
+                            f"⚡ *Smart Mode: Info → Names → Words → Random*\n"
                             f"📁 *Send me any password protected file.*\n\n"
-                            f"_Will keep generating until found!_", 
+                            f"_Will keep generating until found!_",
                             parse_mode='Markdown')
                     return jsonify({"status": "ok"}), 200
 
@@ -683,13 +734,13 @@ def webhook():
             if data == 'verify':
                 if check_channel_membership(user_id):
                     monthly_users = get_monthly_users()
-                    edit_message(chat_id, message_id, 
+                    edit_message(chat_id, message_id,
                         f"🔐 *FILE PASSWORD CRACKER*\n"
                         f"👥 *{monthly_users} monthly users*\n\n"
                         f"✅ Verified!\n"
-                        f"⚡ *Smart Mode: Unique → Names → Words → Random*\n"
+                        f"⚡ *Smart Mode: Info → Names → Words → Random*\n"
                         f"📁 *Send me any password protected file.*\n\n"
-                        f"_Will keep generating until found!_", 
+                        f"_Will keep generating until found!_",
                         parse_mode='Markdown')
                 else:
                     edit_message(chat_id, message_id, "🔴 *Still Not Verified!*\n\n❌ Please join @nrtecno2 first.", reply_markup=join_verify_keyboard())
@@ -714,13 +765,13 @@ def webhook():
                     return jsonify({"status": "ok"}), 200
 
                 monthly_users = get_monthly_users()
-                edit_message(chat_id, message_id, 
+                edit_message(chat_id, message_id,
                     f"🔐 *FILE PASSWORD CRACKER*\n"
                     f"👥 *{monthly_users} monthly users*\n\n"
                     f"⚡ *Smart mode activated (Direct)...*\n"
-                    f"📊 Unique → Names → Words → Random\n"
+                    f"📊 Info → Names → Words → Random\n"
                     f"⏳ Will keep generating until found!\n"
-                    f"_Type /stop to cancel_", 
+                    f"_Type /stop to cancel_",
                     parse_mode='Markdown')
 
                 threading.Thread(
@@ -771,34 +822,3 @@ def webhook():
 
 # ============================================================
 # SET WEBHOOK AND MAIN
-# ============================================================
-def set_webhook():
-    webhook_url = f"{RENDER_URL}/webhook/{TOKEN}"
-    url = f"https://api.telegram.org/bot{TOKEN}/setWebhook"
-    try:
-        response = session.post(url, json={"url": webhook_url}, timeout=30)
-        if response.status_code == 200:
-            print(f"✅ Webhook set to: {webhook_url}")
-        else:
-            print(f"❌ Webhook failed: {response.text}")
-    except Exception as e:
-        print(f"❌ Webhook error: {e}")
-
-
-if __name__ == "__main__":
-    if not TOKEN:
-        print("❌ BOT_TOKEN not found!")
-        exit(1)
-
-    set_webhook()
-
-    port = int(os.environ.get("PORT", 5000))
-    print("🤖 NRTECNO SMART PASSWORD CRACKER STARTED...")
-    print("🔥 PRIORITY: Unique → Names → Words → Random")
-    print("🔢 FOCUS: @ and # symbols")
-    print("🚀 SPEED: 1500 passwords/sec")
-    print("👥 FAKE MONTHLY USERS: 10,000+")
-    print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
-    print("🚀 Running on port", port)
-
-    app.run(host="0.0.0.0", port=port)
