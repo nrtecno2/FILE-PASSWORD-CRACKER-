@@ -10,7 +10,7 @@ import pdfplumber
 from flask import Flask, request, jsonify
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from itertools import permutations
+from itertools import permutations, combinations
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
@@ -34,13 +34,13 @@ def get_monthly_users():
 
 
 # ============================================================
-# ULTIMATE PASSWORD GENERATOR — ALL COMBINATIONS
+# ULTIMATE PASSWORD GENERATOR — UNLIMITED MIXING
 # ============================================================
 class UltimatePasswordGenerator:
     def __init__(self):
         self.high_specials = ['@', '#', '&']
         self.low_specials = ['$', '%', '^', '*', '!', '?', '/', '\\', '|', '~', ':', ';', '"', "'", ',', '.', '<', '>', '[', ']', '{', '}', '`', '+', '=', '-', '_']
-        self.numbers = ['123', '456', '789', '000', '111', '222', '333', '987', '654', '321', '1234', '5678', '9876', '123456', '9876543210']
+        self.digits = '0123456789'
         
         self.names = ['admin', 'root', 'user', 'guest', 'login', 'test', 'demo',
                       'narendra', 'raj', 'rahul', 'amit', 'vikram', 'ajay', 'sunil',
@@ -61,150 +61,254 @@ class UltimatePasswordGenerator:
         self.should_stop = False
 
     # ============================================================
-    # CUSTOM MODE — ALL POSSIBLE COMBINATIONS FROM USER INFO
+    # CHUNK EXTRACTOR — Break info into all possible chunks
+    # ============================================================
+    def extract_chunks(self, text):
+        """Extract all possible chunks from text (2 to full length)"""
+        chunks = set()
+        if not text or len(text) < 2:
+            return chunks
+        
+        text = text.strip()
+        
+        # Full text variations
+        chunks.add(text)
+        chunks.add(text.upper())
+        chunks.add(text.lower())
+        chunks.add(text.capitalize())
+        chunks.add(text.title())
+        
+        # Prefixes (first n characters)
+        for i in range(2, min(len(text), 15) + 1):
+            chunks.add(text[:i])
+            chunks.add(text[:i].upper())
+            chunks.add(text[:i].lower())
+            chunks.add(text[:i].capitalize())
+        
+        # Suffixes (last n characters)
+        for i in range(2, min(len(text), 15) + 1):
+            chunks.add(text[-i:])
+            chunks.add(text[-i:].upper())
+            chunks.add(text[-i:].lower())
+            chunks.add(text[-i:].capitalize())
+        
+        # Middle chunks (random positions)
+        for start in range(0, len(text) - 2, 2):
+            for end in range(start + 3, min(start + 10, len(text) + 1)):
+                chunk = text[start:end]
+                if len(chunk) >= 2:
+                    chunks.add(chunk)
+                    chunks.add(chunk.upper())
+                    chunks.add(chunk.lower())
+                    chunks.add(chunk.capitalize())
+        
+        # Reverse
+        chunks.add(text[::-1])
+        chunks.add(text[::-1].upper())
+        chunks.add(text[::-1].lower())
+        chunks.add(text[::-1].capitalize())
+        
+        return chunks
+
+    # ============================================================
+    # EXTRACT MOBILE CHUNKS — All possible digit combinations
+    # ============================================================
+    def extract_mobile_chunks(self, mobile_str):
+        """Extract all possible digit chunks from mobile numbers"""
+        chunks = set()
+        
+        # Clean and split
+        mobiles = mobile_str.replace(',', ' ').split()
+        for m in mobiles:
+            m_clean = ''.join(filter(str.isdigit, m))
+            if not m_clean or len(m_clean) < 4:
+                continue
+            
+            # Full number
+            chunks.add(m_clean)
+            chunks.add(m_clean[::-1])
+            
+            # All possible substrings of length 4 to 10
+            for length in range(4, min(len(m_clean), 11) + 1):
+                # Prefix
+                chunks.add(m_clean[:length])
+                # Suffix
+                chunks.add(m_clean[-length:])
+                # All substrings
+                for start in range(0, len(m_clean) - length + 1):
+                    chunks.add(m_clean[start:start+length])
+            
+            # Break into smaller chunks (2, 3, 4 digits)
+            for i in range(0, len(m_clean) - 1):
+                for j in range(i + 2, min(i + 5, len(m_clean) + 1)):
+                    chunk = m_clean[i:j]
+                    if len(chunk) >= 2:
+                        chunks.add(chunk)
+                        # Add with special chars
+                        for spec in self.high_specials:
+                            chunks.add(f"{chunk}{spec}")
+                            chunks.add(f"{spec}{chunk}")
+        
+        return list(chunks)
+
+    # ============================================================
+    # GENERATE CUSTOM PASSWORDS — UNLIMITED MIXING
     # ============================================================
     def generate_custom_passwords(self, user_info):
         passwords = set()
-        all_info = []
-
+        
         # Collect all info pieces
+        all_text_chunks = set()
+        all_mobile_chunks = []
+        
         for key, value in user_info.items():
             if value and isinstance(value, str):
-                parts = value.replace(',', ' ').replace('\n', ' ').split()
-                for part in parts:
-                    part = part.strip()
-                    if part and len(part) >= 2:
-                        all_info.append(part)
-                        all_info.append(part.upper())
-                        all_info.append(part.lower())
-                        all_info.append(part.capitalize())
-                        all_info.append(part.title())
-
-        # Extract mobile numbers (full and partial chunks)
-        mobile_chunks = []
+                value = value.strip()
+                if not value:
+                    continue
+                
+                # Extract text chunks
+                chunks = self.extract_chunks(value)
+                for c in chunks:
+                    if len(c) >= 2:
+                        all_text_chunks.add(c)
+        
+        # Extract mobile chunks
         if user_info.get('mobile_numbers'):
-            mobiles = user_info.get('mobile_numbers').replace(',', ' ').split()
-            for m in mobiles:
-                m_clean = ''.join(filter(str.isdigit, m))
-                if m_clean and len(m_clean) >= 4:
-                    # Full number
-                    mobile_chunks.append(m_clean)
-                    # Last 4, 5, 6, 7, 8 digits
-                    for i in range(4, min(len(m_clean), 9) + 1):
-                        mobile_chunks.append(m_clean[-i:])
-                    # First 4, 5, 6 digits
-                    for i in range(4, min(len(m_clean), 7) + 1):
-                        mobile_chunks.append(m_clean[:i])
-                    # Break into chunks of 4, 5, 6, 7
-                    for i in range(0, len(m_clean) - 3, 3):
-                        mobile_chunks.append(m_clean[i:i+4])
-                        if i+5 <= len(m_clean):
-                            mobile_chunks.append(m_clean[i:i+5])
-                        if i+6 <= len(m_clean):
-                            mobile_chunks.append(m_clean[i:i+6])
-        mobile_chunks = list(set([c for c in mobile_chunks if c and len(c) >= 4]))
-
-        # Add mobile chunks to info
-        for m in mobile_chunks:
-            all_info.append(m)
-
-        # Remove duplicates
-        info_pieces = list(set([p for p in all_info if p and len(p) >= 2]))
-
-        if not info_pieces:
-            return ['admin123', 'password123']
-
+            mobile_chunks = self.extract_mobile_chunks(user_info['mobile_numbers'])
+            all_mobile_chunks.extend(mobile_chunks)
+        
+        # Convert to list
+        text_pieces = list(all_text_chunks)
+        mobile_pieces = list(set(all_mobile_chunks))
+        
+        # If nothing found, use defaults
+        if not text_pieces:
+            text_pieces = ['admin', 'password', 'root', 'user']
+        if not mobile_pieces:
+            mobile_pieces = ['123456', '987654', '1234', '5678']
+        
         # ============================================================
-        # GENERATE ALL POSSIBLE COMBINATIONS
+        # GENERATION 1: Text + Special + Mobile
         # ============================================================
-
-        # 1. Single piece + @/#/& + mobile chunk
-        for p in info_pieces[:30]:
-            for m in mobile_chunks[:15]:
+        for t in text_pieces[:30]:
+            for m in mobile_pieces[:20]:
                 for spec in self.high_specials:
-                    passwords.add(f"{p}{spec}{m}")
-                    passwords.add(f"{p}{m}{spec}")
-                    passwords.add(f"{m}{spec}{p}")
-                    passwords.add(f"{p}{spec}{m}{spec}")
-                    passwords.add(f"{p}{m}{spec}{m}")
-
-        # 2. Two pieces + @/#/& + mobile chunks (Name@8984548#39953840)
-        for i in range(min(20, len(info_pieces))):
-            for j in range(min(20, len(info_pieces))):
-                if i != j:
-                    p1 = info_pieces[i]
-                    p2 = info_pieces[j]
-                    for m1 in mobile_chunks[:10]:
-                        for m2 in mobile_chunks[:10]:
+                    passwords.add(f"{t}{spec}{m}")
+                    passwords.add(f"{t}{m}{spec}")
+                    passwords.add(f"{m}{spec}{t}")
+                    passwords.add(f"{t}{spec}{m}{spec}")
+                    passwords.add(f"{t}{m}{spec}{m}")
+                    passwords.add(f"{t[:len(t)//2]}{spec}{m}{t[len(t)//2:]}")
+        
+        # ============================================================
+        # GENERATION 2: Text + Mobile + Text
+        # ============================================================
+        for t1 in text_pieces[:20]:
+            for m in mobile_pieces[:15]:
+                for t2 in text_pieces[:20]:
+                    if t1 != t2:
+                        for spec in self.high_specials:
+                            passwords.add(f"{t1}{spec}{m}{t2}")
+                            passwords.add(f"{t1}{m}{spec}{t2}")
+                            passwords.add(f"{t1}{spec}{m}{spec}{t2}")
+                            passwords.add(f"{t1}{t2}{spec}{m}")
+                            passwords.add(f"{m}{spec}{t1}{t2}")
+        
+        # ============================================================
+        # GENERATION 3: Mobile + Special + Mobile
+        # ============================================================
+        for m1 in mobile_pieces[:15]:
+            for m2 in mobile_pieces[:15]:
+                if m1 != m2:
+                    for spec1 in self.high_specials:
+                        for spec2 in self.high_specials:
+                            if spec1 != spec2:
+                                passwords.add(f"{m1}{spec1}{m2}")
+                                passwords.add(f"{m1}{spec1}{m2}{spec2}")
+                                passwords.add(f"{m1}{m2}{spec1}")
+                                passwords.add(f"{m1}{spec1}{m2}{spec2}{m1}")
+        
+        # ============================================================
+        # GENERATION 4: Text + Text + Mobile + Mobile
+        # ============================================================
+        for t1 in text_pieces[:15]:
+            for t2 in text_pieces[:15]:
+                if t1 != t2:
+                    for m1 in mobile_pieces[:10]:
+                        for m2 in mobile_pieces[:10]:
                             if m1 != m2:
                                 for spec1 in self.high_specials:
                                     for spec2 in self.high_specials:
                                         if spec1 != spec2:
-                                            passwords.add(f"{p1}{spec1}{m1}{spec2}{m2}")
-                                            passwords.add(f"{p1}{spec1}{m2}{spec2}{m1}")
-                                            passwords.add(f"{m1}{spec1}{p1}{spec2}{m2}")
-                                            passwords.add(f"{p1}{p2}{spec1}{m1}{spec2}{m2}")
-                                            passwords.add(f"{p1}{spec1}{p2}{m1}{spec2}{m2}")
-
-        # 3. Three pieces combinations
-        for i in range(min(15, len(info_pieces))):
-            for j in range(min(15, len(info_pieces))):
-                for k in range(min(15, len(info_pieces))):
-                    if i != j and j != k and i != k:
-                        p1 = info_pieces[i]
-                        p2 = info_pieces[j]
-                        p3 = info_pieces[k]
-                        for m in mobile_chunks[:8]:
-                            for spec in self.high_specials:
-                                passwords.add(f"{p1}{p2}{p3}{spec}{m}")
-                                passwords.add(f"{p1}{spec}{p2}{p3}{m}")
-                                passwords.add(f"{p1}{p2}{spec}{p3}{m}")
-                                passwords.add(f"{m}{spec}{p1}{p2}{p3}")
-
-        # 4. Name + mobile chunk + @ + mobile chunk (Narendra@8984548#39953840)
-        for p in info_pieces[:20]:
-            for m1 in mobile_chunks[:12]:
-                for m2 in mobile_chunks[:12]:
-                    if m1 != m2:
-                        for spec1 in self.high_specials:
-                            for spec2 in self.high_specials:
-                                if spec1 != spec2:
-                                    passwords.add(f"{p}{spec1}{m1}{spec2}{m2}")
-                                    passwords.add(f"{p}{spec1}{m2}{spec2}{m1}")
-                                    passwords.add(f"{p}{spec1}{m1}{spec2}{m2}{spec1}")
-                                    passwords.add(f"{p}{spec1}{m1}{spec2}{m2}{spec2}")
-
-        # 5. All pieces + numbers
-        for p in info_pieces:
-            for num in self.numbers[:5]:
-                passwords.add(f"{p}{num}")
-                passwords.add(f"{p}@{num}")
-                passwords.add(f"{p}#{num}")
-                passwords.add(f"{p}&{num}")
-
-        # 6. Info piece + mobile chunk + common word
-        for p in info_pieces[:15]:
-            for m in mobile_chunks[:8]:
-                for word in self.common_words[:10]:
+                                            passwords.add(f"{t1}{t2}{spec1}{m1}{spec2}{m2}")
+                                            passwords.add(f"{t1}{spec1}{t2}{m1}{spec2}{m2}")
+                                            passwords.add(f"{m1}{spec1}{t1}{t2}{spec2}{m2}")
+        
+        # ============================================================
+        # GENERATION 5: Half text + Half text + Mobile
+        # ============================================================
+        for t in text_pieces[:20]:
+            if len(t) >= 4:
+                half1 = t[:len(t)//2]
+                half2 = t[len(t)//2:]
+                for m in mobile_pieces[:10]:
                     for spec in self.high_specials:
-                        passwords.add(f"{p}{spec}{m}{word}")
-                        passwords.add(f"{p}{m}{spec}{word}")
-                        passwords.add(f"{word}{spec}{p}{m}")
-
-        # 7. Long passwords (10 to 100 chars) from info
-        for p in info_pieces[:10]:
-            if len(p) >= 3:
-                for length in range(10, 101, 5):
-                    base = (p * (length // len(p) + 1))[:length]
+                        passwords.add(f"{half1}{spec}{half2}{spec}{m}")
+                        passwords.add(f"{half1}{half2}{spec}{m}")
+                        passwords.add(f"{m}{spec}{half1}{half2}")
+        
+        # ============================================================
+        # GENERATION 6: Long passwords from chunks
+        # ============================================================
+        for t in text_pieces[:10]:
+            if len(t) >= 3:
+                for length in range(8, 101, 4):
+                    base = (t * (length // len(t) + 1))[:length]
                     passwords.add(base)
                     passwords.add(f"{base}@")
                     passwords.add(f"{base}#")
                     passwords.add(f"{base}&")
-                    for m in mobile_chunks[:5]:
+                    for m in mobile_pieces[:5]:
                         passwords.add(f"{base}{spec}{m}")
                         passwords.add(f"{base}{spec}{m}{spec}")
-
-        print(f"✅ CUSTOM: Generated {len(passwords)} passwords")
+                        passwords.add(f"{base[:length-4]}{m}{base[-4:]}")
+        
+        # ============================================================
+        # GENERATION 7: All text pieces with all specials
+        # ============================================================
+        for t in text_pieces[:20]:
+            for spec in self.high_specials:
+                passwords.add(f"{t}{spec}")
+                passwords.add(f"{spec}{t}")
+                passwords.add(f"{t}{spec}{t}")
+                for m in mobile_pieces[:5]:
+                    passwords.add(f"{t}{spec}{m}{spec}")
+                    passwords.add(f"{m}{spec}{t}{spec}")
+        
+        # ============================================================
+        # GENERATION 8: Random mixes
+        # ============================================================
+        for _ in range(500):
+            t1 = random.choice(text_pieces[:20])
+            t2 = random.choice(text_pieces[:20])
+            m1 = random.choice(mobile_pieces[:10])
+            m2 = random.choice(mobile_pieces[:10])
+            spec1 = random.choice(self.high_specials)
+            spec2 = random.choice(self.high_specials)
+            
+            combinations = [
+                f"{t1}{spec1}{m1}{spec2}{t2}",
+                f"{t1}{m1}{spec1}{t2}{spec2}{m2}",
+                f"{m1}{spec1}{t1}{spec2}{m2}{t2}",
+                f"{t1[:len(t1)//2]}{spec1}{m1}{t1[len(t1)//2:]}{spec2}{t2}",
+                f"{m1[:len(m1)//2]}{spec1}{t1}{m1[len(m1)//2:]}{spec2}{m2}"
+            ]
+            for combo in combinations:
+                if len(combo) >= 5:
+                    passwords.add(combo)
+        
+        print(f"✅ CUSTOM: Generated {len(passwords)} unlimited passwords")
         return list(passwords)
 
     # ============================================================
@@ -217,7 +321,7 @@ class UltimatePasswordGenerator:
             passwords.add(name)
             passwords.add(name.upper())
             passwords.add(name.capitalize())
-            for num in self.numbers[:5]:
+            for num in ['123', '456', '789', '2024']:
                 passwords.add(f"{name}{num}")
                 for spec in self.high_specials:
                     passwords.add(f"{name}{spec}{num}")
@@ -227,12 +331,11 @@ class UltimatePasswordGenerator:
             passwords.add(word)
             passwords.add(word.upper())
             passwords.add(word.capitalize())
-            for num in self.numbers[:5]:
+            for num in ['123', '456', '789', '2024']:
                 passwords.add(f"{word}{num}")
                 for spec in self.high_specials:
                     passwords.add(f"{word}{spec}{num}")
 
-        print(f"✅ AUTO: Generated {len(passwords)} passwords")
         return list(passwords)
 
     # ============================================================
@@ -247,45 +350,40 @@ class UltimatePasswordGenerator:
             passwords.add(p)
 
         # Extract info pieces
-        info_pieces = []
+        text_pieces = []
         for key, value in user_info.items():
             if value and isinstance(value, str):
-                parts = value.replace(',', ' ').replace('\n', ' ').split()
-                for part in parts:
-                    part = part.strip()
-                    if part and len(part) >= 2:
-                        info_pieces.append(part)
-                        info_pieces.append(part.upper())
-                        info_pieces.append(part.lower())
-                        info_pieces.append(part.capitalize())
-        info_pieces = list(set(info_pieces))[:20]
+                chunks = self.extract_chunks(value)
+                for c in chunks:
+                    if len(c) >= 2:
+                        text_pieces.append(c)
+        text_pieces = list(set(text_pieces))[:20]
 
         # Mix with names
-        for p in info_pieces:
+        for t in text_pieces:
             for name in self.names[:15]:
-                passwords.add(f"{p}{name}")
-                passwords.add(f"{p}@{name}")
-                passwords.add(f"{p}#{name}")
-                passwords.add(f"{name}{p}")
-                passwords.add(f"{name}@{p}")
-                for num in self.numbers[:3]:
-                    passwords.add(f"{p}{name}{num}")
-                    passwords.add(f"{p}@{name}{num}")
+                passwords.add(f"{t}{name}")
+                passwords.add(f"{t}@{name}")
+                passwords.add(f"{t}#{name}")
+                passwords.add(f"{name}{t}")
+                passwords.add(f"{name}@{t}")
+                for num in ['123', '2024']:
+                    passwords.add(f"{t}{name}{num}")
+                    passwords.add(f"{t}@{name}{num}")
 
         # Mix with common words
-        for p in info_pieces:
+        for t in text_pieces:
             for word in self.common_words[:15]:
-                passwords.add(f"{p}{word}")
-                passwords.add(f"{p}@{word}")
-                passwords.add(f"{p}#{word}")
-                passwords.add(f"{word}{p}")
-                passwords.add(f"{word}@{p}")
+                passwords.add(f"{t}{word}")
+                passwords.add(f"{t}@{word}")
+                passwords.add(f"{t}#{word}")
+                passwords.add(f"{word}{t}")
+                passwords.add(f"{word}@{t}")
 
-        print(f"✅ CUSTOM+AUTO: Generated {len(passwords)} passwords")
         return list(passwords)
 
     # ============================================================
-    # GET NEXT PASSWORDS — INFINITE GENERATION
+    # GET NEXT PASSWORDS — INFINITE
     # ============================================================
     def get_next_passwords(self, user_info=None, mode='custom', batch_size=2000):
         new_passwords = []
@@ -301,7 +399,7 @@ class UltimatePasswordGenerator:
             password_list = self.generate_custom_passwords(user_info)
 
         for pwd in password_list:
-            if pwd not in self.used_passwords and len(pwd) >= 2:
+            if pwd not in self.used_passwords and len(pwd) >= 4:
                 self.used_passwords.add(pwd)
                 new_passwords.append(pwd)
                 if len(new_passwords) >= batch_size:
@@ -553,7 +651,7 @@ def crack_in_background(chat_id, file_path, file_name, ext, user_info=None, mode
             'auto': 'AUTO (Smart List)',
             'custom_auto': 'CUSTOM+AUTO (Info + Bot Words)'
         }
-        send_message(chat_id, f"⚡ *{mode_names.get(mode, 'CUSTOM')} Mode Activated*\n\n⏳ Generating unlimited passwords...\n_Type /stop to cancel_", parse_mode='Markdown')
+        send_message(chat_id, f"⚡ *{mode_names.get(mode, 'CUSTOM')} Mode Activated*\n\n♾️ Generating unlimited passwords...\n_Type /stop to cancel_", parse_mode='Markdown')
 
         while not active_cracking[chat_id].get('stop_flag', False):
             password_list = generator.get_next_passwords(user_info, mode, batch_size)
@@ -650,6 +748,7 @@ def webhook():
                             f"🔐 *FILE PASSWORD CRACKER*\n"
                             f"👥 *{monthly_users} monthly users*\n\n"
                             f"✅ Verified!\n"
+                            f"♾️ *Unlimited Password Generation*\n"
                             f"📁 *Send me any password protected file.*\n\n"
                             f"_Will keep generating until found!_",
                             parse_mode='Markdown')
@@ -770,6 +869,7 @@ def webhook():
                         f"🔐 *FILE PASSWORD CRACKER*\n"
                         f"👥 *{monthly_users} monthly users*\n\n"
                         f"✅ Verified!\n"
+                        f"♾️ *Unlimited Password Generation*\n"
                         f"📁 *Send me any password protected file.*",
                         parse_mode='Markdown')
                 else:
@@ -815,7 +915,7 @@ def webhook():
                         'custom': 'CUSTOM (User Info Only)',
                         'custom_auto': 'CUSTOM+AUTO (Info + Bot Words)'
                     }
-                    edit_message(chat_id, message_id, f"📝 *{mode_names.get(mode, 'CUSTOM')} Mode Selected*\n\nLet's collect some info for password generation...", parse_mode='Markdown')
+                    edit_message(chat_id, message_id, f"📝 *{mode_names.get(mode, 'CUSTOM')} Mode Selected*\n\nLet's collect some info for unlimited password generation...", parse_mode='Markdown')
                     send_message(chat_id, f"📝 *Enter {session_data['fields'][0].replace('_', ' ').title()}?*\n\n_Send /skip to skip_", parse_mode='Markdown')
 
                 answer_callback(callback_id)
@@ -865,8 +965,9 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 5000))
     print("🤖 NRTECNO ULTIMATE PASSWORD CRACKER STARTED...")
+    print("♾️ UNLIMITED PASSWORD GENERATION")
     print("🔥 MODES: CUSTOM | AUTO | CUSTOM+AUTO")
-    print("🔢 GENERATION: Unlimited (5 to 100 chars)")
+    print("🔢 MIXING: All possible chunks and combinations")
     print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
     print("🚀 Running on port", port)
 
