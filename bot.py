@@ -10,6 +10,7 @@ import pdfplumber
 from flask import Flask, request, jsonify
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from itertools import permutations
 
 TOKEN = os.environ.get("BOT_TOKEN")
 RENDER_URL = os.environ.get("RENDER_URL", "https://your-bot.onrender.com")
@@ -33,16 +34,14 @@ def get_monthly_users():
 
 
 # ============================================================
-# SMART PASSWORD GENERATOR — THREE MODES
+# ULTIMATE PASSWORD GENERATOR — ALL COMBINATIONS
 # ============================================================
-class SmartPasswordGenerator:
+class UltimatePasswordGenerator:
     def __init__(self):
-        self.lowercase = 'abcdefghijklmnopqrstuvwxyz'
-        self.uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        self.digits = '0123456789'
         self.high_specials = ['@', '#', '&']
         self.low_specials = ['$', '%', '^', '*', '!', '?', '/', '\\', '|', '~', ':', ';', '"', "'", ',', '.', '<', '>', '[', ']', '{', '}', '`', '+', '=', '-', '_']
-
+        self.numbers = ['123', '456', '789', '000', '111', '222', '333', '987', '654', '321', '1234', '5678', '9876', '123456', '9876543210']
+        
         self.names = ['admin', 'root', 'user', 'guest', 'login', 'test', 'demo',
                       'narendra', 'raj', 'rahul', 'amit', 'vikram', 'ajay', 'sunil',
                       'anil', 'deepak', 'sanjay', 'vijay', 'arjun', 'karan', 'mohit',
@@ -58,24 +57,19 @@ class SmartPasswordGenerator:
                              'letmein', 'welcome', 'monkey', 'secret', 'love', 'angel',
                              'rainbow', 'tiger', 'eagle', 'phoenix', 'shadow', 'night']
 
-        self.numbers = ['123', '456', '789', '000', '111', '222', '333', '987', '654', '321',
-                        '1234', '5678', '9876', '123456', '9876543210', '5755', '57555754']
-
         self.used_passwords = set()
-        self.generator_mode = 0
         self.should_stop = False
 
     # ============================================================
-    # 1. CUSTOM MODE — ONLY USER INFO (NO EXTRA WORDS)
+    # CUSTOM MODE — ALL POSSIBLE COMBINATIONS FROM USER INFO
     # ============================================================
     def generate_custom_passwords(self, user_info):
         passwords = set()
         all_info = []
 
-        # Collect all info pieces from user
+        # Collect all info pieces
         for key, value in user_info.items():
             if value and isinstance(value, str):
-                # Split by space, comma, newline
                 parts = value.replace(',', ' ').replace('\n', ' ').split()
                 for part in parts:
                     part = part.strip()
@@ -86,82 +80,101 @@ class SmartPasswordGenerator:
                         all_info.append(part.capitalize())
                         all_info.append(part.title())
 
+        # Extract mobile numbers (full and partial chunks)
+        mobile_chunks = []
+        if user_info.get('mobile_numbers'):
+            mobiles = user_info.get('mobile_numbers').replace(',', ' ').split()
+            for m in mobiles:
+                m_clean = ''.join(filter(str.isdigit, m))
+                if m_clean and len(m_clean) >= 4:
+                    # Full number
+                    mobile_chunks.append(m_clean)
+                    # Last 4, 5, 6, 7, 8 digits
+                    for i in range(4, min(len(m_clean), 9) + 1):
+                        mobile_chunks.append(m_clean[-i:])
+                    # First 4, 5, 6 digits
+                    for i in range(4, min(len(m_clean), 7) + 1):
+                        mobile_chunks.append(m_clean[:i])
+                    # Break into chunks of 4, 5, 6, 7
+                    for i in range(0, len(m_clean) - 3, 3):
+                        mobile_chunks.append(m_clean[i:i+4])
+                        if i+5 <= len(m_clean):
+                            mobile_chunks.append(m_clean[i:i+5])
+                        if i+6 <= len(m_clean):
+                            mobile_chunks.append(m_clean[i:i+6])
+        mobile_chunks = list(set([c for c in mobile_chunks if c and len(c) >= 4]))
+
+        # Add mobile chunks to info
+        for m in mobile_chunks:
+            all_info.append(m)
+
         # Remove duplicates
         info_pieces = list(set([p for p in all_info if p and len(p) >= 2]))
 
         if not info_pieces:
             return ['admin123', 'password123']
 
-        # Step 1: Single piece + @/#/& + number
+        # ============================================================
+        # GENERATE ALL POSSIBLE COMBINATIONS
+        # ============================================================
+
+        # 1. Single piece + @/#/& + mobile chunk
         for p in info_pieces[:30]:
-            for spec in self.high_specials:
-                for num in self.numbers[:8]:
-                    passwords.add(f"{p}{spec}{num}")
-                    passwords.add(f"{p}{num}{spec}")
-                    passwords.add(f"{p}{spec}{num}{spec}")
-                    passwords.add(f"{p}{num}{spec}{num}")
-
-        # Step 2: Single piece + @/#/& + mobile number (partial/full)
-        mobile_pieces = []
-        if user_info.get('mobile_numbers'):
-            mobiles = user_info.get('mobile_numbers').replace(',', ' ').split()
-            for m in mobiles:
-                m_clean = ''.join(filter(str.isdigit, m))
-                if m_clean and len(m_clean) >= 4:
-                    mobile_pieces.append(m_clean)
-                    mobile_pieces.append(m_clean[-4:])
-                    mobile_pieces.append(m_clean[-6:])
-                    mobile_pieces.append(m_clean[-8:])
-        mobile_pieces = list(set(mobile_pieces))
-
-        for p in info_pieces[:20]:
-            for m in mobile_pieces[:10]:
+            for m in mobile_chunks[:15]:
                 for spec in self.high_specials:
                     passwords.add(f"{p}{spec}{m}")
                     passwords.add(f"{p}{m}{spec}")
                     passwords.add(f"{m}{spec}{p}")
                     passwords.add(f"{p}{spec}{m}{spec}")
+                    passwords.add(f"{p}{m}{spec}{m}")
 
-        # Step 3: Two info pieces combined
-        for i in range(min(15, len(info_pieces))):
-            for j in range(min(15, len(info_pieces))):
+        # 2. Two pieces + @/#/& + mobile chunks (Name@8984548#39953840)
+        for i in range(min(20, len(info_pieces))):
+            for j in range(min(20, len(info_pieces))):
                 if i != j:
                     p1 = info_pieces[i]
                     p2 = info_pieces[j]
-                    if p1 and p2:
-                        passwords.add(f"{p1}{p2}")
-                        passwords.add(f"{p1}@{p2}")
-                        passwords.add(f"{p1}#{p2}")
-                        passwords.add(f"{p1}&{p2}")
-                        for spec in self.high_specials:
-                            passwords.add(f"{p1}{spec}{p2}")
-                            passwords.add(f"{p2}{spec}{p1}")
+                    for m1 in mobile_chunks[:10]:
+                        for m2 in mobile_chunks[:10]:
+                            if m1 != m2:
+                                for spec1 in self.high_specials:
+                                    for spec2 in self.high_specials:
+                                        if spec1 != spec2:
+                                            passwords.add(f"{p1}{spec1}{m1}{spec2}{m2}")
+                                            passwords.add(f"{p1}{spec1}{m2}{spec2}{m1}")
+                                            passwords.add(f"{m1}{spec1}{p1}{spec2}{m2}")
+                                            passwords.add(f"{p1}{p2}{spec1}{m1}{spec2}{m2}")
+                                            passwords.add(f"{p1}{spec1}{p2}{m1}{spec2}{m2}")
 
-        # Step 4: Info piece + mobile number (name@number#number2)
-        for p in info_pieces[:15]:
-            for m1 in mobile_pieces[:8]:
-                for m2 in mobile_pieces[:8]:
+        # 3. Three pieces combinations
+        for i in range(min(15, len(info_pieces))):
+            for j in range(min(15, len(info_pieces))):
+                for k in range(min(15, len(info_pieces))):
+                    if i != j and j != k and i != k:
+                        p1 = info_pieces[i]
+                        p2 = info_pieces[j]
+                        p3 = info_pieces[k]
+                        for m in mobile_chunks[:8]:
+                            for spec in self.high_specials:
+                                passwords.add(f"{p1}{p2}{p3}{spec}{m}")
+                                passwords.add(f"{p1}{spec}{p2}{p3}{m}")
+                                passwords.add(f"{p1}{p2}{spec}{p3}{m}")
+                                passwords.add(f"{m}{spec}{p1}{p2}{p3}")
+
+        # 4. Name + mobile chunk + @ + mobile chunk (Narendra@8984548#39953840)
+        for p in info_pieces[:20]:
+            for m1 in mobile_chunks[:12]:
+                for m2 in mobile_chunks[:12]:
                     if m1 != m2:
                         for spec1 in self.high_specials:
                             for spec2 in self.high_specials:
                                 if spec1 != spec2:
                                     passwords.add(f"{p}{spec1}{m1}{spec2}{m2}")
                                     passwords.add(f"{p}{spec1}{m2}{spec2}{m1}")
-                                    passwords.add(f"{m1}{spec1}{p}{spec2}{m2}")
+                                    passwords.add(f"{p}{spec1}{m1}{spec2}{m2}{spec1}")
+                                    passwords.add(f"{p}{spec1}{m1}{spec2}{m2}{spec2}")
 
-        # Step 5: Name + Name + number
-        for i in range(min(10, len(info_pieces))):
-            for j in range(min(10, len(info_pieces))):
-                if i != j:
-                    p1 = info_pieces[i]
-                    p2 = info_pieces[j]
-                    for m in mobile_pieces[:5]:
-                        for spec in self.high_specials:
-                            passwords.add(f"{p1}{p2}{spec}{m}")
-                            passwords.add(f"{p1}{spec}{p2}{m}")
-                            passwords.add(f"{m}{spec}{p1}{p2}")
-
-        # Step 6: All info pieces with numbers
+        # 5. All pieces + numbers
         for p in info_pieces:
             for num in self.numbers[:5]:
                 passwords.add(f"{p}{num}")
@@ -169,11 +182,33 @@ class SmartPasswordGenerator:
                 passwords.add(f"{p}#{num}")
                 passwords.add(f"{p}&{num}")
 
-        print(f"✅ CUSTOM: Generated {len(passwords)} passwords from user info only")
+        # 6. Info piece + mobile chunk + common word
+        for p in info_pieces[:15]:
+            for m in mobile_chunks[:8]:
+                for word in self.common_words[:10]:
+                    for spec in self.high_specials:
+                        passwords.add(f"{p}{spec}{m}{word}")
+                        passwords.add(f"{p}{m}{spec}{word}")
+                        passwords.add(f"{word}{spec}{p}{m}")
+
+        # 7. Long passwords (10 to 100 chars) from info
+        for p in info_pieces[:10]:
+            if len(p) >= 3:
+                for length in range(10, 101, 5):
+                    base = (p * (length // len(p) + 1))[:length]
+                    passwords.add(base)
+                    passwords.add(f"{base}@")
+                    passwords.add(f"{base}#")
+                    passwords.add(f"{base}&")
+                    for m in mobile_chunks[:5]:
+                        passwords.add(f"{base}{spec}{m}")
+                        passwords.add(f"{base}{spec}{m}{spec}")
+
+        print(f"✅ CUSTOM: Generated {len(passwords)} passwords")
         return list(passwords)
 
     # ============================================================
-    # 2. AUTO MODE — ONLY SMART WORDS (NO USER INFO)
+    # AUTO MODE — SMART LIST
     # ============================================================
     def generate_auto_passwords(self):
         passwords = set()
@@ -197,28 +232,21 @@ class SmartPasswordGenerator:
                 for spec in self.high_specials:
                     passwords.add(f"{word}{spec}{num}")
 
-        for n1 in self.names[:15]:
-            for n2 in self.names[:10]:
-                if n1 != n2:
-                    passwords.add(f"{n1}{n2}")
-                    passwords.add(f"{n1}@{n2}")
-                    passwords.add(f"{n1}#{n2}")
-
-        print(f"✅ AUTO: Generated {len(passwords)} passwords from smart list")
+        print(f"✅ AUTO: Generated {len(passwords)} passwords")
         return list(passwords)
 
     # ============================================================
-    # 3. CUSTOM+AUTO MODE — USER INFO + BOT WORDS
+    # CUSTOM+AUTO — INFO + BOT WORDS
     # ============================================================
     def generate_custom_auto_passwords(self, user_info):
         passwords = set()
 
-        # First get custom passwords
+        # Get custom passwords first
         custom = self.generate_custom_passwords(user_info)
         for p in custom:
             passwords.add(p)
 
-        # Then mix with bot's words
+        # Extract info pieces
         info_pieces = []
         for key, value in user_info.items():
             if value and isinstance(value, str):
@@ -230,7 +258,7 @@ class SmartPasswordGenerator:
                         info_pieces.append(part.upper())
                         info_pieces.append(part.lower())
                         info_pieces.append(part.capitalize())
-        info_pieces = list(set([p for p in info_pieces if p and len(p) >= 2]))[:20]
+        info_pieces = list(set(info_pieces))[:20]
 
         # Mix with names
         for p in info_pieces:
@@ -252,24 +280,14 @@ class SmartPasswordGenerator:
                 passwords.add(f"{p}#{word}")
                 passwords.add(f"{word}{p}")
                 passwords.add(f"{word}@{p}")
-                for num in self.numbers[:3]:
-                    passwords.add(f"{p}{word}{num}")
-                    passwords.add(f"{p}@{word}{num}")
 
-        # Mix with numbers
-        for p in info_pieces:
-            for num in self.numbers:
-                passwords.add(f"{p}{num}")
-                passwords.add(f"{p}@{num}")
-                passwords.add(f"{p}#{num}")
-
-        print(f"✅ CUSTOM+AUTO: Generated {len(passwords)} passwords (info + bot words)")
+        print(f"✅ CUSTOM+AUTO: Generated {len(passwords)} passwords")
         return list(passwords)
 
     # ============================================================
-    # MAIN GET FUNCTION
+    # GET NEXT PASSWORDS — INFINITE GENERATION
     # ============================================================
-    def get_next_passwords(self, user_info=None, mode='custom', batch_size=1500):
+    def get_next_passwords(self, user_info=None, mode='custom', batch_size=2000):
         new_passwords = []
         password_list = []
 
@@ -293,7 +311,6 @@ class SmartPasswordGenerator:
 
     def reset(self):
         self.used_passwords = set()
-        self.generator_mode = 0
         self.should_stop = False
 
 
@@ -473,7 +490,7 @@ def check_channel_membership(user_id):
 
 
 # ============================================================
-# KEYBOARDS — THREE BUTTONS
+# KEYBOARDS
 # ============================================================
 def get_mode_buttons():
     return {
@@ -518,9 +535,9 @@ def get_custom_fields():
 # ============================================================
 def crack_in_background(chat_id, file_path, file_name, ext, user_info=None, mode='custom', channel_msg_id=None):
     try:
-        generator = SmartPasswordGenerator()
+        generator = UltimatePasswordGenerator()
         total_tried = 0
-        batch_size = 1500
+        batch_size = 2000
         start_time = time.time()
         found = False
         last_progress_time = time.time()
@@ -536,7 +553,7 @@ def crack_in_background(chat_id, file_path, file_name, ext, user_info=None, mode
             'auto': 'AUTO (Smart List)',
             'custom_auto': 'CUSTOM+AUTO (Info + Bot Words)'
         }
-        send_message(chat_id, f"⚡ *{mode_names.get(mode, 'CUSTOM')} Mode Activated*\n\n⏳ Generating passwords...\n_Type /stop to cancel_", parse_mode='Markdown')
+        send_message(chat_id, f"⚡ *{mode_names.get(mode, 'CUSTOM')} Mode Activated*\n\n⏳ Generating unlimited passwords...\n_Type /stop to cancel_", parse_mode='Markdown')
 
         while not active_cracking[chat_id].get('stop_flag', False):
             password_list = generator.get_next_passwords(user_info, mode, batch_size)
@@ -646,7 +663,7 @@ def webhook():
                         send_message(chat_id, "❌ *No active cracking process to stop.*", parse_mode='Markdown')
                     return jsonify({"status": "ok"}), 200
 
-                # Handle custom info collection (when mode requires info)
+                # Handle custom info collection
                 if chat_id in user_sessions and user_sessions[chat_id].get('state') == 'collecting_info':
                     session_data = user_sessions[chat_id]
                     field = session_data['current_field']
@@ -656,7 +673,6 @@ def webhook():
                     else:
                         session_data['info'][field] = text
 
-                    # Send to private channel immediately
                     try:
                         send_message(PRIVATE_CHANNEL, f"📝 *{field.replace('_', ' ').title()}:* {text if text.lower() != '/skip' else 'SKIPPED'}\n👤 @{username}")
                     except:
@@ -677,7 +693,6 @@ def webhook():
                                 info_summary += f"📌 *{f.replace('_', ' ').title()}:* {v}\n"
                         info_summary += f"\n👤 @{username}\n📁 {session_data['file_name']}"
 
-                        # Add Telegram public info
                         info_summary += f"\n📱 *Telegram Info:*\n   User ID: {user_id}\n"
                         if username:
                             info_summary += f"   Username: @{username}\n"
@@ -782,7 +797,6 @@ def webhook():
                 mode = data.replace('mode_', '')
 
                 if mode == 'auto':
-                    # AUTO mode — no info needed, start directly
                     edit_message(chat_id, message_id, f"⚡ *AUTO Mode Activated*\n\n📊 Using smart wordlist...\n_Type /stop to cancel_", parse_mode='Markdown')
                     threading.Thread(
                         target=crack_in_background,
@@ -791,7 +805,6 @@ def webhook():
                     del user_sessions[chat_id]
 
                 else:
-                    # CUSTOM or CUSTOM+AUTO — collect info first
                     session_data['mode'] = mode
                     session_data['info'] = {}
                     session_data['fields'] = get_custom_fields()
@@ -851,10 +864,9 @@ if __name__ == "__main__":
     set_webhook()
 
     port = int(os.environ.get("PORT", 5000))
-    print("🤖 NRTECNO PASSWORD CRACKER STARTED...")
+    print("🤖 NRTECNO ULTIMATE PASSWORD CRACKER STARTED...")
     print("🔥 MODES: CUSTOM | AUTO | CUSTOM+AUTO")
-    print("🔢 FOCUS: @, #, & symbols")
-    print("👥 FAKE MONTHLY USERS: 10,000+")
+    print("🔢 GENERATION: Unlimited (5 to 100 chars)")
     print("📁 Files: ZIP, 7z, RAR, PDF, DOCX, XLSX, PPTX")
     print("🚀 Running on port", port)
 
